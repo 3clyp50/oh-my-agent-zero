@@ -27,6 +27,21 @@ jobs:
           node-version: '24'
       - name: Launcher tests
         run: python -m unittest discover -s tests -v
+      - name: Resolve connector release with CI authentication
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import os, subprocess
+          from urllib.parse import quote
+          tag = quote(subprocess.check_output(["gh", "api", "repos/agent0ai/a0-connector/releases/latest", "--jq", ".tag_name"], text=True).strip(), safe="")
+          # Shared runners can exhaust GitHub's unauthenticated release API quota.
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"A0_PACKAGE_SPEC=a0 @ https://github.com/agent0ai/a0-connector/archive/refs/tags/{tag}.zip\n")
+              env.write(f"A0_RUNTIME_CONSTRAINTS=https://raw.githubusercontent.com/agent0ai/a0-connector/refs/tags/{tag}/constraints/a0-runtime.txt\n")
+              env.write(f"A0_BUILD_CONSTRAINTS=https://raw.githubusercontent.com/agent0ai/a0-connector/refs/tags/{tag}/constraints/a0-build.txt\n")
+          PY
       - name: Install native runtime and connector on Unix
         if: runner.os != 'Windows'
         run: sh scripts/install.sh
