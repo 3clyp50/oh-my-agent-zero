@@ -9,6 +9,7 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 | Development RFC calls | Native production mode executes upstream calls locally. Path arguments resolve legacy `/a0` aliases. |
 | Shell default | `auto` means local; explicit SSH configuration remains available. |
 | Unix / Windows | Bash without user startup files / PowerShell without user profiles; upstream PTY implementations remain in use. |
+| Windows event loops | Preserve the native policy when upstream imports its legacy search dependency, so HTTP worker threads and browser subprocesses keep working. |
 | Task Python | Separate Python 3.13 environment with IPython; framework uses Python 3.12. |
 | Node.js | Local Node and upstream evaluator, with safe argument transport and async wrapper. |
 | Plugin loading | Both normal imports and upstream's dynamic tool loader receive the same native adaptation. |
