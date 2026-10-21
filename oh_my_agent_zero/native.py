@@ -377,8 +377,10 @@ async def check(source):
         for kind, code, expected in (
             ("python", "print('native-python-' + str(6 * 7)); print(\"quotes ' \\\" $ café\")", "native-python-42"),
             ("nodejs", "console.log('native-node-' + (6 * 7)); console.log(await Promise.resolve('await-ok'))", "native-node-42"),
+            ("terminal", "Get-Item . | Select-Object Name; Write-Output ('native-terminal-' + (6 * 7))"
+             if os.name == "nt" else "printf 'native-terminal-%s\\n' 42", "native-terminal-42"),
         ):
-            await shell.send_command(execution_command(kind, code, source))
+            await shell.send_command(code if kind == "terminal" else execution_command(kind, code, source))
             output = ""
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
