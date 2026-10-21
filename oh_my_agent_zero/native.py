@@ -31,6 +31,22 @@ def adapt_tunnel_proxy(module):
     module.process = process
 
 
+def adapt_time_travel(module, source):
+    original = module.normalize_display_path
+
+    @functools.wraps(original)
+    def normalize(path):
+        if not str(path or "").strip():
+            return ""
+        resolved = Path(native_path(path, source)).expanduser().resolve()
+        if resolved.is_relative_to(source):
+            relative = resolved.relative_to(source).as_posix()
+            return "/a0" if relative == "." else "/a0/" + relative
+        return original(path)
+
+    module.normalize_display_path = normalize
+
+
 def shell_command(arguments, windows=None):
     if windows is None:
         windows = os.name == "nt"
@@ -41,7 +57,10 @@ def shell_command(arguments, windows=None):
 
 def terminal_command():
     if os.name == "nt":
-        return "powershell.exe -NoLogo -NoProfile"
+        setup = ("Remove-Module PSReadLine -ErrorAction SilentlyContinue; "
+                 "function global:prompt { 'PS ' + (Get-Location).Path + '> ' }; "
+                 "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)")
+        return "powershell.exe -NoLogo -NoProfile -NoExit -EncodedCommand " + base64.b64encode(setup.encode("utf-16le")).decode()
     # macOS /bin/sh strips an inherited PS1 before spawning the interactive Bash.
     return shlex.join(["env", "PS1=a0@native:\\w$ ", "/bin/bash", "--noprofile", "--norc", "-i"])
 
@@ -164,6 +183,7 @@ def apply(source):
     source = source.resolve()
     os.chdir(source)
     sys.path.insert(0, str(source))
+    sys.path.insert(1, str(Path(__file__).resolve().parent.parent))
     from helpers import files, runtime
 
     if getattr(runtime, "_oma0_applied", False):
@@ -192,6 +212,10 @@ def apply(source):
         return await original_call(func, *bound.args, **bound.kwargs)
 
     runtime.call_development_function = local_call
+    if os.name == "nt":
+        from oh_my_agent_zero import windows
+        from helpers import file_transfers
+        file_transfers.write_stream_atomic = windows.write_stream_atomic
     adapt_file_browser(source)
 
     original_prompt = files.read_prompt_file
@@ -222,12 +246,18 @@ def apply(source):
                 adapt_code_execution(module, source)
             elif module.__name__.endswith("playwright"):
                 adapt_browser_paths(module)
+            elif module.__name__.endswith("time_travel"):
+                adapt_time_travel(module, source)
+            elif module.__name__.endswith("editor"):
+                module._fsync_directory = lambda path: None
             else:
                 adapt_tunnel_proxy(module)
 
     class NativeFinder(importlib.abc.MetaPathFinder):
         def find_spec(self, fullname, path=None, target=None):
-            if fullname in {"plugins._code_execution.tools.code_execution_tool", "plugins._browser.helpers.playwright", "api.tunnel_proxy"}:
+            if fullname in {"plugins._code_execution.tools.code_execution_tool", "plugins._browser.helpers.playwright",
+                            "plugins._time_travel.helpers.time_travel", "api.tunnel_proxy"} or (
+                                os.name == "nt" and fullname == "plugins._agent_editor.helpers.editor"):
                 spec = importlib.machinery.PathFinder.find_spec(fullname, path)
                 if spec and spec.origin:
                     spec.loader = NativeLoader(fullname, spec.origin)
@@ -238,6 +268,9 @@ def apply(source):
     from plugins._code_execution.tools import code_execution_tool as cet
     adapt_code_execution(cet, source)
     from agent import Agent
+    if os.name == "nt":
+        from helpers import persist_chat
+        persist_chat._write_atomic = windows.write_text_atomic
     original_user_message = Agent.hist_add_user_message
 
     @functools.wraps(original_user_message)
@@ -310,6 +343,9 @@ async def check(source):
     from api import tunnel, tunnel_proxy
     assert tunnel_proxy.process is tunnel.process
     assert modules.import_module(str(source / "api/tunnel_proxy.py")).process is tunnel.process
+    from plugins._time_travel.helpers import time_travel
+    assert time_travel.normalize_display_path(str(source / "usr/workdir")) == "/a0/usr/workdir"
+    assert time_travel.real_path_for_display("/a0/usr/workdir") == source / "usr/workdir"
     from plugins._code_execution.helpers.shell_local import LocalInteractiveSession
     from plugins._code_execution.tools import code_execution_tool as cet
     from plugins._browser.helpers.playwright import get_playwright_binary

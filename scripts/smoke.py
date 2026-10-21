@@ -194,6 +194,16 @@ def main():
         assert "NATIVE_ATTACHMENT_COMPLETE" in attached["message"]
         assert (data / "uploads/native-upload.txt").read_text() == "NATIVE_UPLOAD_OK"
         assert len(calls) == len(steps)
+        for content in ("first", "replacement"):
+            upload = (f'--{boundary}\r\nContent-Disposition: form-data; name="path"\r\n\r\n{workdir}\r\n'
+                      f'--{boundary}\r\nContent-Disposition: form-data; name="files[]"; filename="transfer-proof.txt"\r\n'
+                      f'Content-Type: text/plain\r\n\r\n{content}\r\n--{boundary}--\r\n').encode()
+            receipt = api("/api/upload_work_dir_files", upload, f"multipart/form-data; boundary={boundary}")
+            assert receipt.get("successful") == ["transfer-proof.txt"], receipt
+            assert (workdir / "transfer-proof.txt").read_text() == content
+        history = api("/api/plugins/_time_travel/history_snapshot", {"context_id": context, "message": "Native snapshot"})
+        assert history["ok"] and history["snapshot"]["hash"], history
+        snapshot_hash = history["snapshot"]["hash"]
         for _ in range(30):
             if any((data / "chats").glob(f"{context}/*.json")):
                 break
@@ -207,7 +217,9 @@ def main():
         snapshot = api("/api/poll", {"context": context})
         assert "NATIVE_SMOKE_COMPLETE" in json.dumps(snapshot), "Chat did not survive restart"
         assert (workdir / "editor-check.txt").read_text() == "patched"
-        print("PASS: HTTP, CSRF rejection, full agent/tool loop, Python, Node, terminal, editor write/patch/read, browser tool, search routing, attachments, file browser, chat persistence, UI restart.")
+        history = api("/api/plugins/_time_travel/history_list", {"context_id": context})
+        assert snapshot_hash in json.dumps(history), history
+        print("PASS: HTTP, CSRF rejection, full agent/tool loop, Python, Node, terminal, editor write/patch/read, browser tool, search routing, attachments, file transfers, file browser, Time Travel snapshots, chat persistence, UI restart.")
     except BaseException:
         log.flush()
         print((home / "smoke.log").read_text(encoding="utf-8", errors="replace")[-24000:])

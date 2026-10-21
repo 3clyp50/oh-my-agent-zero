@@ -8,6 +8,7 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 
 - `oh_my_agent_zero/cli.py`: installation, isolated environments, updates, process lock, commands.
 - `oh_my_agent_zero/native.py`: startup compatibility layer and native execution.
+- `oh_my_agent_zero/windows.py`: flushed atomic file replacement on Windows; preserve upload validation and conflict checks.
 - `tests/`: launcher tests and integration checks against real upstream modules.
 - `scripts/` and `.github/workflows/`: bootstrap and platform verification.
 

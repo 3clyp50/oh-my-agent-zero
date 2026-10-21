@@ -6,7 +6,7 @@ import subprocess
 import unittest
 from unittest.mock import patch, Mock
 
-from oh_my_agent_zero import cli, native
+from oh_my_agent_zero import cli, native, windows
 
 
 class NativeTests(unittest.TestCase):
@@ -99,6 +99,25 @@ class NativeTests(unittest.TestCase):
             cli.save_state(home, {"revision": "example"})
             self.assertEqual(cli.read_state(home)["revision"], "example")
             self.assertFalse((home / "state.tmp").exists())
+
+    def test_failed_windows_replace_preserves_existing_chat(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "chat.json"
+            target.write_text("old")
+            with patch.object(windows, "move_atomic", side_effect=OSError("locked")):
+                with self.assertRaisesRegex(OSError, "locked"):
+                    windows.write_text_atomic(target, "new")
+            self.assertEqual(target.read_text(), "old")
+            self.assertEqual(list(Path(folder).iterdir()), [target])
+
+    @unittest.skipUnless(os.name == "nt", "Windows atomic replacement")
+    def test_windows_atomic_save_replaces_and_flushes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "chat café.json"
+            windows.write_text_atomic(target, "first")
+            windows.write_text_atomic(target, "second")
+            self.assertEqual(target.read_text(), "second")
+            self.assertEqual(list(Path(folder).iterdir()), [target])
 
     def test_real_git_update_and_failed_candidate_preserve_user_data(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -137,7 +137,8 @@ def install(home, branch="main", update=False):
     revision = git(source, "rev-parse", "FETCH_HEAD")
     if previous:
         run("git", "-C", source, "merge-base", "--is-ancestor", old_revision, revision)
-    adapter_version = hashlib.sha256(ADAPTER.read_bytes() + Path(__file__).read_bytes()).hexdigest()[:12]
+    adapter_version = hashlib.sha256(b"".join(path.name.encode() + path.read_bytes()
+                                             for path in sorted(ADAPTER.parent.glob("*.py")))).hexdigest()[:12]
     framework = Path("environments") / (revision + "-" + adapter_version) / "framework"
     if previous and revision == previous["revision"] and str(framework) == previous["framework"]:
         run(*adapter_command(home, previous, "--check"), env=environment(home, previous))
@@ -147,7 +148,7 @@ def install(home, branch="main", update=False):
     try:
         run("git", "-C", source, "checkout", "--detach", revision)
         if not python_in(home / framework).exists():
-            run("uv", "venv", "--python", "3.12", home / framework)
+            run("uv", "venv", "--seed", "--python", "3.12", home / framework)
         py = python_in(home / framework)
         run("uv", "pip", "install", "--python", py, "--torch-backend", "cpu",
             "-r", source / "requirements.txt", "ddgs>=9,<10", "nodeenv>=1.9,<2")
