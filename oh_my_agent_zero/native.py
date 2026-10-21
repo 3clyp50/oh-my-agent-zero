@@ -274,6 +274,8 @@ def apply(source):
                 f"## Environment\nYou run directly on {platform.system()} {platform.machine()}, "
                 f"as the current OS user, outside Docker.\nFramework directory: {source}\n"
                 f"Shell: {'PowerShell' if os.name == 'nt' else 'Bash'}. Use this OS's syntax and native paths.\n"
+                + ("PowerShell uses redirected streams. Avoid Read-Host and console-only interfaces; use noninteractive commands.\n" if os.name == "nt" else "")
+                +
                 f"Task Python: {os.environ['OMA0_EXECUTION_PYTHON']}\n"
                 f"Framework Python: {sys.executable}\n"
                 "Install task packages into task Python; keep framework dependencies separate.\n"
@@ -426,8 +428,8 @@ async def check(source):
              if os.name == "nt" else "nativeValue=42\nprintf 'native-state-%s\\n' \"$nativeValue\"", "native-state-42"),
             ("terminal", "Write-Output ('native-kept-' + $nativeValue)"
              if os.name == "nt" else "printf 'native-kept-%s\\n' \"$nativeValue\"", "native-kept-42"),
-            ("terminal", "$nativeReply = Read-Host 'native-question'; Write-Output ('native-reply-' + $nativeReply)"
-             if os.name == "nt" else "printf 'native-question'; read -r nativeReply; printf 'native-reply-%s\\n' \"$nativeReply\"", "native-question"),
+            ("terminal", shell_command([os.environ["OMA0_EXECUTION_PYTHON"], "-u", "-c",
+                                        "reply=input('native-question'); print('native-reply-'+reply)"]), "native-question"),
             ("input", "yes", "native-reply-yes"),
         ):
             command = code if kind in {"terminal", "input"} else execution_command(kind, code, source)
