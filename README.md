@@ -41,7 +41,7 @@ a0-native start
 
 Updates fetch `agent0ai/agent-zero` main, require a clean checkout and a fast-forward history, build a revision-specific framework environment, and run native checks before activating it. Preparation failure restores the previous code revision and keeps the previous environment. User data stays in `source/usr`. Stop the server before updating. Back up user data before upgrading; upstream startup migrations can change its format.
 
-Update this launcher separately with `uv tool upgrade oh-my-agent-zero`. To opt into upstream development at first install: `a0-native install --branch development`.
+Update this launcher with `uv tool upgrade oh-my-agent-zero`, then run `a0-native update` to prepare its matching environment. To opt into upstream development at first install: `a0-native install --branch development`.
 
 `a0-native status` prints the revision and paths. `a0-native doctor` checks the real framework, shell, Python, Node.js, and Chromium without a model key. `--home PATH` before the command or `OMA0_HOME` selects another installation. Defaults:
 
@@ -51,7 +51,7 @@ Update this launcher separately with `uv tool upgrade oh-my-agent-zero`. To opt 
 | macOS | `~/Library/Application Support/oh-my-agent-zero` |
 | Windows | `%LOCALAPPDATA%\oh-my-agent-zero` |
 
-Settings, credentials, chats, plugins, projects, and work files live under `source/usr`. Framework packages live under `environments/<commit>/framework`; agent task packages live under `execution`. Keep these environments separate. Old framework environments are retained for manual recovery.
+Settings, credentials, chats, plugins, projects, and work files live under `source/usr`. Framework packages live under `environments/<commit>-<adapter>/framework`; agent task packages live under `execution`. Keep these environments separate. Old framework environments are retained for manual recovery.
 
 ## Native behavior
 

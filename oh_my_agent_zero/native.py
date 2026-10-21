@@ -217,6 +217,12 @@ def apply(source):
         from oh_my_agent_zero import windows
         from helpers import file_transfers
         file_transfers.write_stream_atomic = windows.write_stream_atomic
+        # The legacy search import replaces Windows' policy after nest_asyncio patches it.
+        policy = asyncio.get_event_loop_policy()
+        try:
+            from helpers import duckduckgo_search
+        finally:
+            asyncio.set_event_loop_policy(policy)
     adapt_file_browser(source)
 
     original_prompt = files.read_prompt_file
@@ -335,6 +341,9 @@ def apply(source):
 
 async def check(source):
     from helpers import files, runtime, settings, plugins, modules
+    policy = asyncio.get_event_loop_policy()
+    modules.import_module(str(source / "tools/search_engine.py"))
+    assert asyncio.get_event_loop_policy() is policy, "Search imports must preserve the native event-loop policy"
     plugins.refresh_plugin_modules(["_code_execution", "_browser"])
     dynamic_code = modules.import_module(str(source / "plugins/_code_execution/tools/code_execution_tool.py"))
     assert not dynamic_code._get_config(None)["ssh_enabled"]
