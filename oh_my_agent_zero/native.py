@@ -43,14 +43,11 @@ def adapt_windows_shell(module):
         )
 
     module._spawn_winpty = spawn
-    original_sendline = module.TTYSession.sendline
 
-    async def sendline(self, line):
-        encoded = base64.b64encode(line.encode("utf-8")).decode("ascii")
-        command = ". ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encoded + "'))))"
-        await original_sendline(self, command)
 
-    module.TTYSession.sendline = sendline
+def powershell_command(code):
+    encoded = base64.b64encode(code.encode("utf-8")).decode("ascii")
+    return ". ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encoded + "'))))"
 
 
 def adapt_time_travel(module, source):
@@ -199,6 +196,13 @@ def adapt_code_execution(cet, source):
     cet._resolve_ssh_enabled = lambda value: False if str(value).lower().strip() == "auto" else original_ssh(value)
     original_python = cet.CodeExecution.execute_python_code
     original_node = cet.CodeExecution.execute_nodejs_code
+    original_terminal = cet.CodeExecution.terminal_session
+
+    @functools.wraps(original_terminal)
+    async def terminal(self, cfg, session, command, reset=False, prefix="", timeouts=None):
+        if os.name == "nt" and not cfg["ssh_enabled"] and not self.allow_running:
+            command = powershell_command(command)
+        return await original_terminal(self, cfg, session, command, reset, prefix, timeouts)
 
     async def execute_python(self, cfg, session, code, reset=False):
         if cfg["ssh_enabled"]:
@@ -212,6 +216,7 @@ def adapt_code_execution(cet, source):
 
     cet.CodeExecution.execute_python_code = execute_python
     cet.CodeExecution.execute_nodejs_code = execute_node
+    cet.CodeExecution.terminal_session = terminal
     cet._oma0_applied = True
 
 
@@ -422,7 +427,8 @@ async def check(source):
             ("terminal", "Write-Output ('native-kept-' + $nativeValue)"
              if os.name == "nt" else "printf 'native-kept-%s\\n' \"$nativeValue\"", "native-kept-42"),
         ):
-            await shell.send_command(code if kind == "terminal" else execution_command(kind, code, source))
+            command = code if kind == "terminal" else execution_command(kind, code, source)
+            await shell.send_command(powershell_command(command) if os.name == "nt" else command)
             output = ""
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
