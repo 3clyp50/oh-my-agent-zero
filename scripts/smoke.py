@@ -40,7 +40,7 @@ def main():
     steps = [
         ("code_execution_tool", {"runtime": "python", "code": "from pathlib import Path; Path('python-check.txt').write_text('42'); print('PYTHON_OK')"}),
         ("code_execution_tool", {"runtime": "nodejs", "code": "require('fs').writeFileSync('node-check.txt', String(await Promise.resolve(42))); console.log('NODE_OK')"}),
-        ("code_execution_tool", {"runtime": "terminal", "code": "Set-Content -LiteralPath 'terminal-check.txt' -Value '42' -NoNewline; Get-Item -LiteralPath 'terminal-check.txt' | Select-Object FullName,Length; Write-Output 'TERMINAL_OK'" if os.name == "nt" else "printf 42 > terminal-check.txt; printf 'TERMINAL_OK\\n'"}),
+        ("code_execution_tool", {"runtime": "terminal", "code": "Set-Content -LiteralPath 'terminal-check.txt' -Value '42' -NoNewline; Get-Item -LiteralPath 'terminal-check.txt' | Select-Object FullName,Length; Write-Output ('TERMINAL_' + 'OK')" if os.name == "nt" else "printf 42 > terminal-check.txt; printf 'TERMINAL_%s\\n' OK"}),
         ("text_editor", {"action": "write", "path": str(workdir / "editor-check.txt"), "content": "original"}),
         ("text_editor", {"action": "patch", "path": str(workdir / "editor-check.txt"), "old_text": "original", "new_text": "patched"}),
         ("text_editor", {"action": "read", "path": str(workdir / "editor-check.txt")}),
@@ -186,6 +186,7 @@ def main():
         assert "NATIVE_SMOKE_COMPLETE" in json.dumps(snapshot)
         assert "NATIVE_BROWSER_TOOL_OK" in json.dumps(snapshot)
         assert "NATIVE_SEARCH_OK" in json.dumps(snapshot)
+        assert "TERMINAL_OK" in json.dumps(snapshot), "Terminal command did not finish"
         boundary = "native-smoke-boundary"
         body = (f'--{boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\nRead the attached file.\r\n'
                 f'--{boundary}\r\nContent-Disposition: form-data; name="context"\r\n\r\n{context}\r\n'
