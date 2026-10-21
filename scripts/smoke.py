@@ -6,7 +6,6 @@ are used. The fixture emits tool calls; upstream executes and persists them.
 from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-from http.client import RemoteDisconnected
 import os
 from pathlib import Path
 import signal
@@ -149,7 +148,7 @@ def main():
                 result = json.load(opener.open(req, timeout=2))
                 token = result["token"]
                 break
-            except (URLError, TimeoutError, KeyError):
+            except (URLError, ConnectionError, TimeoutError, KeyError):
                 time.sleep(0.5)
         assert token, "Server did not become ready"
 
@@ -212,7 +211,7 @@ def main():
             time.sleep(1)
         try:
             api("/api/restart", {})
-        except (RemoteDisconnected, URLError):
+        except (ConnectionError, URLError):
             pass
         _, api, restarted_id = client()
         assert runtime_id != restarted_id, "UI restart did not replace the framework process"
