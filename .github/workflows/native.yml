@@ -1,0 +1,42 @@
+name: Native runtime
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      OMA0_HOME: ${{ github.workspace }}/.local
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Launcher tests
+        run: python -m unittest discover -s tests -v
+      - name: Install upstream and verify native runtimes
+        run: python -m oh_my_agent_zero install
+      - name: HTTP, tools, persistence, and update checks
+        run: python scripts/smoke.py
+      - name: Update without changing user data
+        run: python -m oh_my_agent_zero update
+      - name: Check source integrity
+        run: git -C .local/source diff --exit-code
+      - name: Diagnostic logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-logs-${{ matrix.os }}
+          path: .local/*.log

@@ -1,0 +1,11 @@
+.local/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.env
+*.env
+!*.env.example
+*.log
