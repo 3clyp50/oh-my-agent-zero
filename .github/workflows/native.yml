@@ -40,3 +40,4 @@ jobs:
         with:
           name: native-logs-${{ matrix.os }}
           path: .local/*.log
+          include-hidden-files: true

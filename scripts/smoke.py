@@ -171,6 +171,10 @@ def main():
         assert "NATIVE_SMOKE_COMPLETE" in json.dumps(snapshot), "Chat did not survive restart"
         assert (workdir / "editor-check.txt").read_text() == "patched"
         print("PASS: HTTP, CSRF rejection, full agent/tool loop, Python, Node, terminal, editor write/patch/read, browser tool, file browser, chat persistence, restart.")
+    except BaseException:
+        log.flush()
+        print((home / "smoke.log").read_text(encoding="utf-8", errors="replace")[-24000:])
+        raise
     finally:
         stop()
         provider.shutdown()
