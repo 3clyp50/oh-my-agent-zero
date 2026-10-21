@@ -426,9 +426,12 @@ async def check(source):
              if os.name == "nt" else "nativeValue=42\nprintf 'native-state-%s\\n' \"$nativeValue\"", "native-state-42"),
             ("terminal", "Write-Output ('native-kept-' + $nativeValue)"
              if os.name == "nt" else "printf 'native-kept-%s\\n' \"$nativeValue\"", "native-kept-42"),
+            ("terminal", "$nativeReply = Read-Host 'native-question'; Write-Output ('native-reply-' + $nativeReply)"
+             if os.name == "nt" else "printf 'native-question'; read -r nativeReply; printf 'native-reply-%s\\n' \"$nativeReply\"", "native-question"),
+            ("input", "yes", "native-reply-yes"),
         ):
-            command = code if kind == "terminal" else execution_command(kind, code, source)
-            await shell.send_command(powershell_command(command) if os.name == "nt" else command)
+            command = code if kind in {"terminal", "input"} else execution_command(kind, code, source)
+            await shell.send_command(powershell_command(command) if os.name == "nt" and kind != "input" else command)
             output = ""
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline:

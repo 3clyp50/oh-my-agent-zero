@@ -46,6 +46,13 @@ class NativeTests(unittest.TestCase):
         self.assertEqual(native.shell_command(["C:\\My Apps\\python.exe", "a'b\"$x"], windows=True),
                          "& 'C:\\My Apps\\python.exe' 'a''b\"$x'")
 
+    def test_powershell_transport_preserves_multiline_unicode(self):
+        import base64
+        code = "$name = 'café'\nWrite-Output $name\n" + "# long payload\n" * 1000
+        encoded = native.powershell_command(code).split("'")[1]
+        self.assertEqual(base64.b64decode(encoded).decode("utf-8"), code)
+        self.assertNotIn("\n", native.powershell_command(code))
+
     def test_posix_arguments_roundtrip(self):
         import shlex
         args = ["/tmp/My Apps/python", "a'b\"$x\nline two"]
