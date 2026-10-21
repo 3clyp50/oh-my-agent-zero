@@ -2,6 +2,11 @@ MIT License
 
 Copyright (c) 2026 Alessandro Frau
 
+Portions of the atomic file-transfer logic are adapted from Agent Zero:
+Copyright (c) 2025 Agent Zero, s.r.o
+Contact: pr@agent-zero.ai
+Repository: https://github.com/agent0ai/agent-zero
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

@@ -15,6 +15,7 @@ import platform
 import re
 import shlex
 import sys
+import time
 
 MAC_CHROMIUM_PATTERNS = (
     "chromium-*/chrome-mac*/Chromium.app/Contents/MacOS/Chromium",
@@ -370,9 +371,12 @@ async def check(source):
         ):
             await shell.send_command(execution_command(kind, code, source))
             output = ""
-            for _ in range(100):
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
                 output, _ = await shell.read_output(timeout=0.2)
                 if expected in output:
+                    break
+                if shell.is_terminated():
                     break
                 await asyncio.sleep(0.1)
             assert expected in output, f"{kind} failed: {output}"
