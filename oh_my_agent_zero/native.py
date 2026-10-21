@@ -32,6 +32,17 @@ def adapt_tunnel_proxy(module):
     module.process = process
 
 
+def adapt_windows_shell(module):
+    async def spawn(cmd, cwd, env, echo):
+        return await asyncio.create_subprocess_exec(
+            *shlex.split(cmd), cwd=cwd, env=env,
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+
+    module._spawn_winpty = spawn
+
+
 def adapt_time_travel(module, source):
     original = module.normalize_display_path
 
@@ -255,6 +266,8 @@ def apply(source):
                 adapt_browser_paths(module)
             elif module.__name__.endswith("time_travel"):
                 adapt_time_travel(module, source)
+            elif module.__name__.endswith("tty_session"):
+                adapt_windows_shell(module)
             elif module.__name__.endswith("editor"):
                 module._fsync_directory = lambda path: None
             else:
@@ -264,7 +277,8 @@ def apply(source):
         def find_spec(self, fullname, path=None, target=None):
             if fullname in {"plugins._code_execution.tools.code_execution_tool", "plugins._browser.helpers.playwright",
                             "plugins._time_travel.helpers.time_travel", "api.tunnel_proxy"} or (
-                                os.name == "nt" and fullname == "plugins._agent_editor.helpers.editor"):
+                                os.name == "nt" and fullname in {
+                                    "plugins._agent_editor.helpers.editor", "plugins._code_execution.helpers.tty_session"}):
                 spec = importlib.machinery.PathFinder.find_spec(fullname, path)
                 if spec and spec.origin:
                     spec.loader = NativeLoader(fullname, spec.origin)

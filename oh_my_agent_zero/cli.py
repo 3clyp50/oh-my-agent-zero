@@ -96,9 +96,6 @@ def environment(home, state):
     env["OMA0_NODE"] = state["node"]
     env["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "browsers")
     env["A0_BROWSER_PLAYWRIGHT_CACHE_DIR"] = str(home / "browsers")
-    if os.name == "nt":
-        # Windows PowerShell's console formatting can block under ConPTY.
-        env["PYWINPTY_BACKEND"] = "1"
     return env
 
 
