@@ -4,12 +4,13 @@ import argparse
 import asyncio
 import base64
 from dataclasses import replace
+from datetime import datetime
 import functools
 import inspect
-import json
 import os
 from pathlib import Path
 import platform
+import re
 import shlex
 import sys
 
@@ -31,6 +32,8 @@ def terminal_command():
 
 def native_path(path, source):
     path = str(path)
+    if os.name == "nt" and re.match(r"^/[a-zA-Z]:[/\\]", path):
+        path = path[1:]
     if path == "/a0":
         return str(source)
     if path.startswith("/a0/"):
@@ -39,7 +42,8 @@ def native_path(path, source):
 
 
 def map_alias(value, source):
-    if isinstance(value, str) and (value == "/a0" or value.startswith("/a0/")):
+    if isinstance(value, str) and (value == "/a0" or value.startswith("/a0/")
+                                   or os.name == "nt" and re.match(r"^/[a-zA-Z]:[/\\]", value)):
         return native_path(value, source)
     if isinstance(value, list):
         return [map_alias(item, source) for item in value]
@@ -52,10 +56,66 @@ def execution_command(kind, code, source):
         script = ("import base64; from IPython import start_ipython; "
                   f"start_ipython(argv=['-c',base64.b64decode('{encoded}').decode('utf-8')])")
         return shell_command([os.environ["OMA0_EXECUTION_PYTHON"], "-c", script])
-    helper = str(source / "docker/run/fs/exe/node_eval.js")
+    helper = base64.b64encode(str(source / "docker/run/fs/exe/node_eval.js").encode()).decode()
     script = (f"process.argv[2]='(async()=>{{'+Buffer.from('{encoded}','base64').toString('utf8')+'\\n}})()';"
-              f"require({json.dumps(helper)});")
+              f"require(Buffer.from('{helper}','base64').toString('utf8'));")
     return shell_command([os.environ["OMA0_NODE"], "-e", script])
+
+
+def adapt_file_browser(source):
+    from helpers.file_browser import FileBrowser
+    from helpers.localization import Localization
+
+    def list_entries(self, full_path):
+        ordinary, folders = [], []
+        with os.scandir(full_path) as entries:
+            for entry in entries:
+                try:
+                    info = entry.stat()
+                    directory = entry.is_dir()
+                    if not directory and not entry.is_file():
+                        continue
+                    path = Path(entry.path).as_posix()
+                    row = {"name": entry.name, "path": "/" + path if os.name == "nt" else path,
+                           "modified": datetime.fromtimestamp(info.st_mtime, tz=Localization.get().get_tzinfo()).isoformat(),
+                           "type": "folder" if directory else self._get_file_type(entry.name),
+                           "size": 0 if directory else info.st_size, "is_dir": directory}
+                    if entry.is_symlink():
+                        row.update(is_symlink=True, symlink_target=os.readlink(entry.path))
+                    (folders if directory else ordinary).append(row)
+                except OSError:
+                    continue
+                if len(ordinary) + len(folders) >= 10000:
+                    break
+        return sorted(ordinary, key=lambda row: row["name"].casefold()), sorted(folders, key=lambda row: row["name"].casefold())
+
+    FileBrowser._get_files_via_ls = list_entries
+    if os.name != "nt":
+        return
+
+    def wrap(method):
+        @functools.wraps(method)
+        def on_drive(self, *args, **kwargs):
+            bound = inspect.signature(method).bind(self, *args, **kwargs)
+            self.base_dir = Path(source.anchor)
+            for name, value in bound.arguments.items():
+                if name in {"current_path", "file_path", "file_paths", "destination_path", "parent_path"}:
+                    converted = map_alias(value, source)
+                    bound.arguments[name] = converted
+                    first = converted[0] if isinstance(converted, list) and converted else converted
+                    if isinstance(first, str) and Path(first).drive:
+                        self.base_dir = Path(Path(first).anchor)
+            result = method(*bound.args, **bound.kwargs)
+            if method.__name__ == "get_files":
+                for name in ("current_path", "parent_path"):
+                    if result.get(name):
+                        result[name] = "/" + Path(result[name]).as_posix()
+            return result
+        return on_drive
+
+    for name in ("get_files", "get_full_path", "save_file_b64", "save_files", "delete_file",
+                 "rename_item", "move_items", "create_folder", "save_text_file"):
+        setattr(FileBrowser, name, wrap(getattr(FileBrowser, name)))
 
 
 def adapt_code_execution(cet, source):
@@ -116,6 +176,7 @@ def apply(source):
         return await original_call(func, *bound.args, **bound.kwargs)
 
     runtime.call_development_function = local_call
+    adapt_file_browser(source)
 
     original_prompt = files.read_prompt_file
 

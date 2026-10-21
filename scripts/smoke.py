@@ -21,6 +21,7 @@ from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from oh_my_agent_zero.cli import adapter_command, default_home, environment, read_state
+from oh_my_agent_zero.native import native_path
 
 
 def free_port():
@@ -45,9 +46,16 @@ def main():
         ("text_editor", {"action": "patch", "path": str(workdir / "editor-check.txt"), "old_text": "original", "new_text": "patched"}),
         ("text_editor", {"action": "read", "path": str(workdir / "editor-check.txt")}),
         ("browser", {"action": "open", "url": "data:text/html,<h1>NATIVE_BROWSER_TOOL_OK</h1>", "include_content": True}),
+        ("browser", {"action": "evaluate", "script": "document.querySelector('h1').textContent"}),
         ("browser", {"action": "close_all"}),
+        ("search_engine", {"query": "native fixture"}),
         ("response", {"text": "NATIVE_SMOKE_COMPLETE"}),
     ]
+    initial_step_count = len(steps)
+    steps.extend([
+        ("text_editor", {"action": "read", "path": str(data / "uploads/native-upload.txt")}),
+        ("response", {"text": "NATIVE_ATTACHMENT_COMPLETE"}),
+    ])
     calls = []
 
     class Provider(BaseHTTPRequestHandler):
@@ -55,7 +63,15 @@ def main():
             pass
 
         def do_POST(self):
-            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            raw = self.rfile.read(int(self.headers["Content-Length"]))
+            if self.path == "/search":
+                assert b"q=native+fixture" in raw
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"results": [{"title": "NATIVE_SEARCH_OK", "url": "https://example.com", "content": "Local search fixture"}]}).encode())
+                return
+            body = json.loads(raw)
             if self.path.endswith("/embeddings"):
                 inputs = body["input"]
                 count = len(inputs) if isinstance(inputs, list) else 1
@@ -98,6 +114,7 @@ def main():
     base = f"http://127.0.0.1:{port}"
     env = environment(home, state)
     env["API_KEY_OPENAI"] = "native-fixture-key"
+    env["OMA0_SEARXNG_URL"] = f"http://127.0.0.1:{provider.server_port}/search"
     env["A0_SET_update_check_enabled"] = "false"
     server = None
     log = (home / "smoke.log").open("w", encoding="utf-8")
@@ -134,9 +151,10 @@ def main():
                 time.sleep(0.5)
         assert token, "Server did not become ready"
 
-        def api(path, data=None):
-            request = Request(base + path, data=json.dumps(data).encode() if data is not None else None,
-                              headers={"Origin": base, "X-CSRF-Token": token, "Content-Type": "application/json"})
+        def api(path, data=None, content_type="application/json"):
+            payload = data if isinstance(data, bytes) else json.dumps(data).encode() if data is not None else None
+            request = Request(base + path, data=payload,
+                              headers={"Origin": base, "X-CSRF-Token": token, "Content-Type": content_type})
             return json.load(opener.open(request, timeout=180))
         return opener, api, result["runtime_id"]
 
@@ -155,13 +173,23 @@ def main():
         for name in ("python", "node", "terminal"):
             assert (workdir / f"{name}-check.txt").read_text().strip() == "42", name
         assert (workdir / "editor-check.txt").read_text() == "patched"
-        assert len(calls) == len(steps), calls
+        assert len(calls) == initial_step_count, calls
         listing = api("/api/get_work_dir_files?path=" + quote(str(workdir)))
         assert "editor-check.txt" in json.dumps(listing), listing
-        assert str(home / "source") in json.dumps(api("/api/get_work_dir_files"))
+        assert Path(native_path(api("/api/get_work_dir_files")["data"]["current_path"], home / "source")) == home / "source"
         snapshot = api("/api/poll", {"context": context})
         assert "NATIVE_SMOKE_COMPLETE" in json.dumps(snapshot)
         assert "NATIVE_BROWSER_TOOL_OK" in json.dumps(snapshot)
+        assert "NATIVE_SEARCH_OK" in json.dumps(snapshot)
+        boundary = "native-smoke-boundary"
+        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\nRead the attached file.\r\n'
+                f'--{boundary}\r\nContent-Disposition: form-data; name="context"\r\n\r\n{context}\r\n'
+                f'--{boundary}\r\nContent-Disposition: form-data; name="attachments"; filename="native-upload.txt"\r\n'
+                f'Content-Type: text/plain\r\n\r\nNATIVE_UPLOAD_OK\r\n--{boundary}--\r\n').encode()
+        attached = api("/api/message", body, f"multipart/form-data; boundary={boundary}")
+        assert "NATIVE_ATTACHMENT_COMPLETE" in attached["message"]
+        assert (data / "uploads/native-upload.txt").read_text() == "NATIVE_UPLOAD_OK"
+        assert len(calls) == len(steps)
         for _ in range(30):
             if any((data / "chats").glob(f"{context}/*.json")):
                 break
@@ -175,7 +203,7 @@ def main():
         snapshot = api("/api/poll", {"context": context})
         assert "NATIVE_SMOKE_COMPLETE" in json.dumps(snapshot), "Chat did not survive restart"
         assert (workdir / "editor-check.txt").read_text() == "patched"
-        print("PASS: HTTP, CSRF rejection, full agent/tool loop, Python, Node, terminal, editor write/patch/read, browser tool, file browser, chat persistence, restart.")
+        print("PASS: HTTP, CSRF rejection, full agent/tool loop, Python, Node, terminal, editor write/patch/read, browser tool, search routing, attachments, file browser, chat persistence, UI restart.")
     except BaseException:
         log.flush()
         print((home / "smoke.log").read_text(encoding="utf-8", errors="replace")[-24000:])
