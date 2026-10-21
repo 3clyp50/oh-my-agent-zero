@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch, Mock
 
@@ -98,6 +99,51 @@ class NativeTests(unittest.TestCase):
             cli.save_state(home, {"revision": "example"})
             self.assertEqual(cli.read_state(home)["revision"], "example")
             self.assertFalse((home / "state.tmp").exists())
+
+    def test_real_git_update_and_failed_candidate_preserve_user_data(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            upstream, home = root / "upstream", root / "install"
+            upstream.mkdir()
+            def git_at(path, *args):
+                return subprocess.check_output(["git", "-C", str(path), *args], stderr=subprocess.DEVNULL, text=True).strip()
+            git_at(upstream, "init", "-b", "main")
+            git_at(upstream, "config", "user.name", "Native test")
+            git_at(upstream, "config", "user.email", "native@example.invalid")
+            (upstream / "requirements.txt").write_text("")
+            git_at(upstream, "add", ".")
+            git_at(upstream, "commit", "-m", "baseline")
+            home.mkdir()
+            subprocess.run(["git", "clone", str(upstream), str(home / "source")], check=True, capture_output=True)
+            previous = {"revision": git_at(upstream, "rev-parse", "HEAD"), "branch": "main", "framework": "baseline-env", "node": "node"}
+            cli.save_state(home, previous)
+            private = home / "source/usr/private.txt"
+            private.parent.mkdir()
+            private.write_text("keep me")
+            original_run = cli.run
+
+            def prepare(*args, **kwargs):
+                if args[0] == "git":
+                    return original_run(*args, **kwargs)
+                if "--check" in args:
+                    self.assertEqual(cli.read_state(home), previous)
+                    if fail:
+                        raise RuntimeError("candidate rejected")
+
+            for fail in (True, False):
+                (upstream / "requirements.txt").write_text("# new revision\n" + str(fail))
+                git_at(upstream, "add", ".")
+                git_at(upstream, "commit", "-m", "update")
+                with patch.object(cli, "UPSTREAM", str(upstream)), patch.object(cli.shutil, "which", return_value="tool"), patch.object(cli, "run", side_effect=prepare):
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError, "candidate rejected"):
+                            cli.install(home, update=True)
+                        self.assertEqual(cli.read_state(home), previous)
+                        self.assertEqual(git_at(home / "source", "rev-parse", "HEAD"), previous["revision"])
+                    else:
+                        cli.install(home, update=True)
+                        self.assertEqual(cli.read_state(home)["revision"], git_at(upstream, "rev-parse", "HEAD"))
+                self.assertEqual(private.read_text(), "keep me")
 
     def test_process_lock_rejects_second_owner(self):
         import subprocess

@@ -6,6 +6,8 @@ import base64
 from dataclasses import replace
 from datetime import datetime
 import functools
+import importlib.abc
+import importlib.machinery
 import inspect
 import os
 from pathlib import Path
@@ -13,6 +15,20 @@ import platform
 import re
 import shlex
 import sys
+
+MAC_CHROMIUM_PATTERNS = (
+    "chromium-*/chrome-mac*/Chromium.app/Contents/MacOS/Chromium",
+    "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+)
+
+
+def adapt_browser_paths(module):
+    module.FULL_CHROMIUM_PATTERNS = tuple(dict.fromkeys((*module.FULL_CHROMIUM_PATTERNS, *MAC_CHROMIUM_PATTERNS)))
+
+
+def adapt_tunnel_proxy(module):
+    from api.tunnel import process
+    module.process = process
 
 
 def shell_command(arguments, windows=None):
@@ -199,6 +215,26 @@ def apply(source):
 
     files.read_prompt_file = read_prompt
 
+    class NativeLoader(importlib.machinery.SourceFileLoader):
+        def exec_module(self, module):
+            super().exec_module(module)
+            if module.__name__.endswith("code_execution_tool"):
+                adapt_code_execution(module, source)
+            elif module.__name__.endswith("playwright"):
+                adapt_browser_paths(module)
+            else:
+                adapt_tunnel_proxy(module)
+
+    class NativeFinder(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path=None, target=None):
+            if fullname in {"plugins._code_execution.tools.code_execution_tool", "plugins._browser.helpers.playwright", "api.tunnel_proxy"}:
+                spec = importlib.machinery.PathFinder.find_spec(fullname, path)
+                if spec and spec.origin:
+                    spec.loader = NativeLoader(fullname, spec.origin)
+                return spec
+            return None
+
+    sys.meta_path.insert(0, NativeFinder())
     from plugins._code_execution.tools import code_execution_tool as cet
     adapt_code_execution(cet, source)
     from agent import Agent
@@ -219,9 +255,8 @@ def apply(source):
         module = original_import(file_path)
         if Path(module.__file__).resolve() == code_file:
             adapt_code_execution(module, source)
-        canonical = sys.modules.get("plugins._code_execution.tools.code_execution_tool")
-        if canonical is not None:
-            adapt_code_execution(canonical, source)
+        elif Path(module.__file__).resolve() == source / "api/tunnel_proxy.py":
+            adapt_tunnel_proxy(module)
         return module
 
     modules.import_module = import_module
@@ -244,10 +279,7 @@ def apply(source):
 
     # Upstream's browser cache discovery currently omits the macOS application bundle.
     from plugins._browser.helpers import playwright as browser_paths
-    browser_paths.FULL_CHROMIUM_PATTERNS += (
-        "chromium-*/chrome-mac*/Chromium.app/Contents/MacOS/Chromium",
-        "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-    )
+    adapt_browser_paths(browser_paths)
 
     from helpers import plugins, system_packages
     original_enabled = plugins.get_enabled_plugins
@@ -268,7 +300,16 @@ def apply(source):
 
 
 async def check(source):
-    from helpers import files, runtime, settings, plugins
+    from helpers import files, runtime, settings, plugins, modules
+    plugins.refresh_plugin_modules(["_code_execution", "_browser"])
+    dynamic_code = modules.import_module(str(source / "plugins/_code_execution/tools/code_execution_tool.py"))
+    assert not dynamic_code._get_config(None)["ssh_enabled"]
+    modules.import_module(str(source / "plugins/_browser/tools/browser.py"))
+    from plugins._browser.helpers import playwright as browser_paths
+    assert set(MAC_CHROMIUM_PATTERNS).issubset(browser_paths.FULL_CHROMIUM_PATTERNS)
+    from api import tunnel, tunnel_proxy
+    assert tunnel_proxy.process is tunnel.process
+    assert modules.import_module(str(source / "api/tunnel_proxy.py")).process is tunnel.process
     from plugins._code_execution.helpers.shell_local import LocalInteractiveSession
     from plugins._code_execution.tools import code_execution_tool as cet
     from plugins._browser.helpers.playwright import get_playwright_binary

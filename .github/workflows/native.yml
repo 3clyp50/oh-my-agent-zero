@@ -29,6 +29,7 @@ jobs:
       - name: Install upstream and verify native runtimes
         run: python -m oh_my_agent_zero install
       - name: HTTP, tools, persistence, and update checks
+        timeout-minutes: 8
         run: python scripts/smoke.py
       - name: Update without changing user data
         run: python -m oh_my_agent_zero update

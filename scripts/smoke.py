@@ -86,6 +86,7 @@ def main():
                 assert index < len(steps), "Agent unexpectedly retried/completed another turn"
                 tool, args = steps[index]
                 calls.append(tool)
+                print(f"Fixture turn {index + 1}: {tool}", flush=True)
                 content = json.dumps({"thoughts": ["Run the deterministic native runtime check."], "headline": f"Native check {index}", "tool_name": tool, "tool_args": args})
             else:
                 content = "Native smoke test"
@@ -139,7 +140,8 @@ def main():
     def client():
         opener = build_opener(HTTPCookieProcessor(CookieJar()))
         token = None
-        for _ in range(360):
+        deadline = time.monotonic() + 180
+        while time.monotonic() < deadline:
             if server.poll() is not None:
                 raise RuntimeError(f"Server exited; inspect {home / 'smoke.log'}")
             try:
@@ -159,8 +161,10 @@ def main():
         return opener, api, result["runtime_id"]
 
     try:
+        print("Starting native server and waiting for authenticated HTTP readiness...", flush=True)
         server = start()
         opener, api, runtime_id = client()
+        print("WebUI ready; checking CSRF and dispatching real agent tools...", flush=True)
         assert b"Agent Zero" in opener.open(base).read()
         try:
             opener.open(Request(base + "/api/message", data=b'{}', headers={"Content-Type": "application/json"}))

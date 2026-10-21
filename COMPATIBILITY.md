@@ -16,6 +16,7 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 | Prompts | Environment section reports actual platform, runtime paths, permissions, and available surfaces. |
 | Browser | Patchright Chromium; macOS bundle discovery added. DOM automation and screenshots use the host browser process. |
 | Search | DDGS or an explicitly configured SearXNG JSON endpoint. |
+| Tunnel status | Local tunnel manager, without probing Docker's separate port-55520 service during CSRF/bootstrap. |
 | Docker services | Desktop and Office desktop plugins excluded; system-package repair hooks cannot modify the host. |
 | Updates | Official Git upstream, clean checkout, fast-forward check, prepared environment, rollback of code on preparation failure. |
 
