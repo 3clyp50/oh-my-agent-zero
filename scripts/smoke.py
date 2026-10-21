@@ -6,6 +6,7 @@ are used. The fixture emits tool calls; upstream executes and persists them.
 from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from http.client import RemoteDisconnected
 import os
 from pathlib import Path
 import signal
@@ -102,7 +103,8 @@ def main():
     log = (home / "smoke.log").open("w", encoding="utf-8")
 
     def start():
-        return subprocess.Popen(adapter_command(home, state, "--port", str(port)), env=env,
+        return subprocess.Popen([sys.executable, "-m", "oh_my_agent_zero", "--home", str(home), "start", "--port", str(port)], env=env,
+                                cwd=Path(__file__).resolve().parents[1],
                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=os.name != "nt")
 
     def stop():
@@ -136,11 +138,11 @@ def main():
             request = Request(base + path, data=json.dumps(data).encode() if data is not None else None,
                               headers={"Origin": base, "X-CSRF-Token": token, "Content-Type": "application/json"})
             return json.load(opener.open(request, timeout=180))
-        return opener, api
+        return opener, api, result["runtime_id"]
 
     try:
         server = start()
-        opener, api = client()
+        opener, api, runtime_id = client()
         assert b"Agent Zero" in opener.open(base).read()
         try:
             opener.open(Request(base + "/api/message", data=b'{}', headers={"Content-Type": "application/json"}))
@@ -164,9 +166,12 @@ def main():
             if any((data / "chats").glob(f"{context}/*.json")):
                 break
             time.sleep(1)
-        stop()
-        server = start()
-        _, api = client()
+        try:
+            api("/api/restart", {})
+        except (RemoteDisconnected, URLError):
+            pass
+        _, api, restarted_id = client()
+        assert runtime_id != restarted_id, "UI restart did not replace the framework process"
         snapshot = api("/api/poll", {"context": context})
         assert "NATIVE_SMOKE_COMPLETE" in json.dumps(snapshot), "Chat did not survive restart"
         assert (workdir / "editor-check.txt").read_text() == "patched"

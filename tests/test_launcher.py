@@ -26,6 +26,13 @@ class NativeTests(unittest.TestCase):
         args = ["/tmp/My Apps/python", "a'b\"$x\nline two"]
         self.assertEqual(shlex.split(native.shell_command(args, windows=False)), args)
 
+    @unittest.skipIf(os.name == "nt", "POSIX shell behavior")
+    def test_prompt_survives_bash_as_the_intermediate_shell(self):
+        import subprocess
+        result = subprocess.run(["/bin/bash", "--posix", "-c", native.terminal_command()],
+                                input="exit\n", text=True, capture_output=True, timeout=10)
+        self.assertIn("a0@native:", result.stderr)
+
     def test_payload_not_interpreted_by_shell(self):
         with patch.dict(os.environ, {"OMA0_EXECUTION_PYTHON": "python", "OMA0_NODE": "node"}):
             for language in ("python", "nodejs"):

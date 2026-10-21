@@ -22,6 +22,13 @@ def shell_command(arguments, windows=None):
     return shlex.join(map(str, arguments))
 
 
+def terminal_command():
+    if os.name == "nt":
+        return "powershell.exe -NoLogo -NoProfile"
+    # macOS /bin/sh strips an inherited PS1 before spawning the interactive Bash.
+    return shlex.join(["env", "PS1=a0@native:\\w$ ", "/bin/bash", "--noprofile", "--norc", "-i"])
+
+
 def native_path(path, source):
     path = str(path)
     if path == "/a0":
@@ -89,10 +96,7 @@ def apply(source):
     runtime.initialize()
     runtime.args.pop("dockerized", None)
     runtime.is_development = lambda: False
-    runtime.get_terminal_executable = lambda: (
-        "powershell.exe -NoLogo -NoProfile" if os.name == "nt" else "/bin/bash --noprofile --norc -i"
-    )
-    os.environ["PS1"] = "a0@native:\\w$ "
+    runtime.get_terminal_executable = terminal_command
     files.get_abs_path_dockerized = files.get_abs_path
     files.normalize_a0_path = lambda path: native_path(path, source)
     files.fix_dev_path = lambda path: native_path(path, source)
@@ -213,7 +217,7 @@ async def check(source):
     assert callable(run_ui.run)
     assert not runtime.is_dockerized() and not runtime.is_development()
     assert not cet._get_config(None)["ssh_enabled"], "Code execution must default to the local shell"
-    assert files.get_abs_path_dockerized("usr/workdir") == str(source / "usr/workdir")
+    assert Path(files.get_abs_path_dockerized("usr/workdir")) == source / "usr/workdir"
     assert settings.get_settings()["workdir_path"] != "/a0/usr/workdir"
     assert not {"_desktop", "_office"}.intersection(plugins.get_enabled_plugins(None))
     assert await runtime.call_development_function(lambda: "local") == "local"
