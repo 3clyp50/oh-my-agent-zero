@@ -41,6 +41,14 @@ def adapt_windows_shell(module):
         )
 
     module._spawn_winpty = spawn
+    original_sendline = module.TTYSession.sendline
+
+    async def sendline(self, line):
+        encoded = base64.b64encode(line.encode("utf-8")).decode("ascii")
+        command = ". ([ScriptBlock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encoded + "'))))"
+        await original_sendline(self, command)
+
+    module.TTYSession.sendline = sendline
 
 
 def adapt_time_travel(module, source):
@@ -393,6 +401,10 @@ async def check(source):
             ("nodejs", "console.log('native-node-' + (6 * 7)); console.log(await Promise.resolve('await-ok'))", "native-node-42"),
             ("terminal", "Get-Item . | Select-Object FullName,Length; Write-Output ('native-terminal-' + (6 * 7))"
              if os.name == "nt" else "printf 'native-terminal-%s\\n' 42", "native-terminal-42"),
+            ("terminal", "$nativeValue = 6\n$nativeValue *= 7\nWrite-Output ('native-state-' + $nativeValue)"
+             if os.name == "nt" else "nativeValue=42\nprintf 'native-state-%s\\n' \"$nativeValue\"", "native-state-42"),
+            ("terminal", "Write-Output ('native-kept-' + $nativeValue)"
+             if os.name == "nt" else "printf 'native-kept-%s\\n' \"$nativeValue\"", "native-kept-42"),
         ):
             await shell.send_command(code if kind == "terminal" else execution_command(kind, code, source))
             output = ""
