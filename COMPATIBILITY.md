@@ -14,7 +14,7 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 | Node.js | Local Node and upstream evaluator, with safe argument transport and async wrapper. |
 | Plugin loading | Both normal imports and upstream's dynamic tool loader receive the same native adaptation. |
 | Uploads and paths | Native attachment paths and local file APIs. No host `/a0` symlink or directory is created. |
-| Time Travel | Retains its canonical workspace identifiers while snapshots read and write the native filesystem. |
+| Time Travel | Retains canonical workspace identifiers on the native filesystem; serializes background and HTTP operations so snapshots cannot overwrite each other's Git history. |
 | Windows storage | Flushed temporary files and write-through atomic replacement, preserving upload limits and conflict checks without POSIX directory descriptors. |
 | Prompts | Environment section reports actual platform, runtime paths, permissions, and available surfaces. |
 | Browser | Patchright Chromium; macOS bundle discovery added. DOM automation and screenshots use the host browser process. |

@@ -15,12 +15,14 @@ import platform
 import re
 import shlex
 import sys
+import threading
 import time
 
 MAC_CHROMIUM_PATTERNS = (
     "chromium-*/chrome-mac*/Chromium.app/Contents/MacOS/Chromium",
     "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
 )
+TIME_TRAVEL_LOCK = threading.RLock()
 
 
 def adapt_browser_paths(module):
@@ -65,6 +67,20 @@ def adapt_time_travel(module, source):
         return original(path)
 
     module.normalize_display_path = normalize
+
+    def serialized(method):
+        @functools.wraps(method)
+        def locked(*args, **kwargs):
+            with TIME_TRAVEL_LOCK:
+                return method(*args, **kwargs)
+        return locked
+
+    # Watchdog and HTTP snapshots otherwise race on the same Git index and HEAD.
+    for name, method in vars(module.TimeTravelService).copy().items():
+        if not name.startswith("_") and inspect.isfunction(method):
+            if inspect.iscoroutinefunction(method):
+                raise RuntimeError("Unsupported asynchronous Time Travel interface. Update the launcher.")
+            setattr(module.TimeTravelService, name, serialized(method))
 
 
 def shell_command(arguments, windows=None):

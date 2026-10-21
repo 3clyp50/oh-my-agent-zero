@@ -10,6 +10,30 @@ from oh_my_agent_zero import cli, native, windows
 
 
 class NativeTests(unittest.TestCase):
+    def test_time_travel_serializes_watchdog_and_http_writers(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from types import SimpleNamespace
+        import time
+
+        class Service:
+            value = 0
+
+            def snapshot(self):
+                current = self.value
+                time.sleep(0.005)
+                self.value = current + 1
+                return self.current_hash()
+
+            def current_hash(self):
+                return self.value
+
+        module = SimpleNamespace(TimeTravelService=Service, normalize_display_path=str)
+        native.adapt_time_travel(module, Path(tempfile.gettempdir()))
+        service = Service()
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(lambda _: service.snapshot(), range(12)))
+        self.assertEqual(sorted(results), list(range(1, 13)))
+
     def test_path_mapping_preserves_external_paths(self):
         root = Path(tempfile.gettempdir()) / "native folder"
         self.assertEqual(native.native_path("/a0/usr/workdir", root), str(root / "usr/workdir"))
