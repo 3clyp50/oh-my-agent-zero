@@ -22,6 +22,7 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 - Failed preparation must preserve the active revision and environment. Never overwrite user data or force a dirty checkout.
 - Never commit credentials, runtime directories, chat logs, or provider test output.
 - No automatic system package installation, privileged commands, or container service cleanup.
+- Bootstrap installs both tools; delegate connector release resolution and dependency locks to its official installer. Preserve existing connector configuration.
 - No ponytail comments in source.
 
 ## Work Guidance
@@ -30,7 +31,7 @@ Keep the adapter small. Check callers before adapting an upstream interface. Upd
 
 ## Verification
 
-Run `python -m unittest discover -s tests -v`, then install and run `a0-native doctor` and the integration smoke script. Verify real provider/tool behavior locally with private credentials. CI runs native platform integration with an explicit fake provider; it is not evidence of a paid provider call.
+Run `python -m unittest discover -s tests -v`, then install and run `a0-native doctor` and the integration smoke script. CI runs both bootstrap scripts on their native platforms with `OMA0_PACKAGE_SPEC` pointing to the checkout, then `scripts/smoke.py --connector` against a disposable server. Verify real provider/tool behavior locally with private credentials. CI uses an explicit fake provider; it is not evidence of a paid provider call.
 
 ## Child DOX Index
 

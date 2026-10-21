@@ -6,21 +6,37 @@ Native execution gives the agent your account's filesystem and command permissio
 
 ## Install
 
-Prerequisites: Git and [uv](https://docs.astral.sh/uv/getting-started/installation/). Python, isolated environments, and Chromium are installed automatically. An existing Node.js is used, or Node LTS is downloaded locally. No administrator privileges are requested.
+Install Git first, then run one command below. The installer sets up **oh-my-agent-zero and [a0-connector](https://github.com/agent0ai/a0-connector)** together, including [uv](https://docs.astral.sh/uv/getting-started/installation/) when needed, Python, isolated environments, and Chromium. An existing Node.js is used, or Node LTS is downloaded locally. No administrator privileges are requested.
 
-If you already have Git, the bootstrap scripts also install uv for your account:
+Linux / macOS:
 
 ```sh
-# Linux / macOS
 curl -fsSL https://raw.githubusercontent.com/3clyp50/oh-my-agent-zero/main/scripts/install.sh | sh
 ```
 
+Windows PowerShell:
+
 ```powershell
-# Windows PowerShell
 irm https://raw.githubusercontent.com/3clyp50/oh-my-agent-zero/main/scripts/install.ps1 | iex
 ```
 
-Or install explicitly:
+The connector's official installer selects its latest published release with matching dependency locks. Both tools get separate environments; existing connector settings stay in place. Close running instances before rerunning the installer.
+
+Start Agent Zero:
+
+```sh
+a0-native start
+```
+
+Open **http://127.0.0.1:50001** to configure your provider. For terminal chat, run this in another terminal:
+
+```sh
+a0 --host http://127.0.0.1:50001 --connect --no-docker-discovery
+```
+
+The installer also prints full executable paths if the commands are not on your shell's PATH yet. If you choose another server port, use the same port in `--host`.
+
+To install only the native runtime yourself, with Git and uv already installed:
 
 ```sh
 uv tool install --python 3.12 git+https://github.com/3clyp50/oh-my-agent-zero.git
@@ -28,7 +44,7 @@ a0-native install
 a0-native start
 ```
 
-These commands also work in PowerShell. Open **http://127.0.0.1:50001** and use Agent Zero's onboarding to configure your provider. Stop with Ctrl+C. `oh-my-agent-zero` is an alias for `a0-native`. The launcher supervises WebUI-requested restarts and retains the installation lock until the server stops.
+These commands also work in PowerShell. Stop the server with Ctrl+C. `oh-my-agent-zero` is an alias for `a0-native`. The launcher supervises WebUI-requested restarts and retains the installation lock until the server stops.
 
 The first installation downloads upstream's Python dependencies, including local embedding and speech models' libraries, plus Chromium. Allow several GB of disk space. Linux may need Chromium shared libraries installed through your distribution's package manager; installation checks launch Chromium and report missing libraries.
 
@@ -42,6 +58,8 @@ a0-native start
 Updates fetch `agent0ai/agent-zero` main, require a clean checkout and a fast-forward history, build a revision-specific framework environment, and run native checks before activating it. Preparation failure restores the previous code revision and keeps the previous environment. User data stays in `source/usr`. Stop the server before updating. Back up user data before upgrading; upstream startup migrations can change its format.
 
 Update this launcher with `uv tool upgrade oh-my-agent-zero`, then run `a0-native update` to prepare its matching environment. To opt into upstream development at first install: `a0-native install --branch development`.
+
+Update the connector separately with `a0 update`.
 
 `a0-native status` prints the revision and paths. `a0-native doctor` checks the real framework, shell, Python, Node.js, and Chromium without a model key. `--home PATH` before the command or `OMA0_HOME` selects another installation. Defaults:
 
@@ -75,3 +93,5 @@ python -m oh_my_agent_zero --home .local doctor
 ```
 
 Platform verification and known limits are recorded in [COMPATIBILITY.md](COMPATIBILITY.md).
+
+For installer development, `OMA0_PACKAGE_SPEC` overrides the launcher package source; CI sets it to the checked-out repository. `python scripts/smoke.py --connector` additionally tests a real connector chat against the disposable native server.

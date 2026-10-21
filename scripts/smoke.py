@@ -5,6 +5,7 @@ are used. The fixture emits tool calls; upstream executes and persists them.
 """
 from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import argparse
 import json
 import os
 from pathlib import Path
@@ -30,6 +31,9 @@ def free_port():
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--connector", action="store_true", help="Also test the installed a0 CLI against this disposable server")
+    args = parser.parse_args()
     home = default_home()
     state = read_state(home)
     data = home / "source/usr"
@@ -221,6 +225,19 @@ def main():
         assert (workdir / "editor-check.txt").read_text() == "patched"
         history = api("/api/plugins/_time_travel/history_list", {"context_id": context})
         assert snapshot_hash in json.dumps(history), history
+        if args.connector:
+            steps.append(("response", {"text": "NATIVE_CONNECTOR_COMPLETE"}))
+            tool_bin = Path(subprocess.check_output(["uv", "tool", "dir", "--bin"], text=True).strip())
+            connector = subprocess.run(
+                [str(tool_bin / ("a0.exe" if os.name == "nt" else "a0")), "headless", "--host", base,
+                 "--no-docker-discovery", "--chat", context, "--workspace", str(workdir),
+                 "--print", "native-connector-smoke: verify the native connection.", "--output", "jsonl"],
+                capture_output=True, text=True, encoding="utf-8", timeout=120,
+            )
+            assert connector.returncode == 0, connector.stdout + connector.stderr
+            assert "NATIVE_CONNECTOR_COMPLETE" in connector.stdout, connector.stdout + connector.stderr
+            assert len(calls) == len(steps), calls
+            print("PASS: installed a0-connector connected to the native server and completed a chat.")
         print("PASS: HTTP, CSRF rejection, full agent/tool loop, Python, Node, terminal, editor write/patch/read, browser tool, search routing, attachments, file transfers, file browser, Time Travel snapshots, chat persistence, UI restart.")
     except BaseException:
         log.flush()
