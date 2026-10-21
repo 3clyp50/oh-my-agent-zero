@@ -8,13 +8,27 @@ Native execution gives the agent your account's filesystem and command permissio
 
 Prerequisites: Git and [uv](https://docs.astral.sh/uv/getting-started/installation/). Python, isolated environments, and Chromium are installed automatically. An existing Node.js is used, or Node LTS is downloaded locally. No administrator privileges are requested.
 
+If you already have Git, the bootstrap scripts also install uv for your account:
+
+```sh
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/3clyp50/oh-my-agent-zero/main/scripts/install.sh | sh
+```
+
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/3clyp50/oh-my-agent-zero/main/scripts/install.ps1 | iex
+```
+
+Or install explicitly:
+
 ```sh
 uv tool install --python 3.12 git+https://github.com/3clyp50/oh-my-agent-zero.git
 a0-native install
 a0-native start
 ```
 
-These commands also work in PowerShell. Open **http://127.0.0.1:50001** and use Agent Zero's onboarding to configure your provider. Stop with Ctrl+C. `oh-my-agent-zero` is an alias for `a0-native`.
+These commands also work in PowerShell. Open **http://127.0.0.1:50001** and use Agent Zero's onboarding to configure your provider. Stop with Ctrl+C. `oh-my-agent-zero` is an alias for `a0-native`. The launcher supervises WebUI-requested restarts and retains the installation lock until the server stops.
 
 The first installation downloads upstream's Python dependencies, including local embedding and speech models' libraries, plus Chromium. Allow several GB of disk space. Linux may need Chromium shared libraries installed through your distribution's package manager; installation checks launch Chromium and report missing libraries.
 

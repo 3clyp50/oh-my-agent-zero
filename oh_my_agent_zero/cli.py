@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -40,12 +41,14 @@ def default_home():
 
 @contextmanager
 def locked(home):
-    home.mkdir(parents=True, exist_ok=True)
+    home.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if os.name != "nt":
+        home.chmod(0o700)
     with (home / "runtime.lock").open("a+b") as handle:
         handle.seek(0)
         if os.name == "nt":
             import msvcrt
-            if not handle.read(1):
+            if os.fstat(handle.fileno()).st_size == 0:
                 handle.write(b"0")
                 handle.flush()
             handle.seek(0)
@@ -134,7 +137,12 @@ def install(home, branch="main", update=False):
     revision = git(source, "rev-parse", "FETCH_HEAD")
     if previous:
         run("git", "-C", source, "merge-base", "--is-ancestor", old_revision, revision)
-    framework = Path("environments") / revision / "framework"
+    adapter_version = hashlib.sha256(ADAPTER.read_bytes() + Path(__file__).read_bytes()).hexdigest()[:12]
+    framework = Path("environments") / (revision + "-" + adapter_version) / "framework"
+    if previous and revision == previous["revision"] and str(framework) == previous["framework"]:
+        run(*adapter_command(home, previous, "--check"), env=environment(home, previous))
+        print("Upstream is current; native checks passed.")
+        return
     state = {"revision": revision, "branch": branch, "framework": str(framework)}
     try:
         run("git", "-C", source, "checkout", "--detach", revision)
@@ -161,6 +169,28 @@ def install(home, branch="main", update=False):
         run("git", "-C", source, "checkout", "--detach", old_revision)
         raise
     print(f"Ready: upstream {revision[:12]} ({branch})\nData: {source / 'usr'}\nRun: a0-native start")
+
+
+def serve(home, state, port):
+    env = environment(home, state)
+    env["OMA0_SUPERVISED"] = "1"
+    command = adapter_command(home, state, "--port", str(port))
+    while True:
+        child = subprocess.Popen(command, env=env)
+        try:
+            code = child.wait()
+        finally:
+            if child.poll() is None:
+                child.terminate()
+                try:
+                    child.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    child.kill()
+                    child.wait()
+        if code != 75:
+            if code:
+                raise subprocess.CalledProcessError(code, command)
+            return
 
 
 def main(argv=None):
@@ -192,10 +222,9 @@ def main(argv=None):
                     if not 1 <= args.port <= 65535:
                         raise RuntimeError("Port must be between 1 and 65535.")
                     print(f"Agent Zero: http://127.0.0.1:{args.port}\nCommands run on this machine as your user.", flush=True)
-                    extra = ["--port", str(args.port)]
+                    serve(home, state, args.port)
                 else:
-                    extra = ["--check"]
-                run(*adapter_command(home, state, *extra), env=environment(home, state))
+                    run(*adapter_command(home, state, "--check"), env=environment(home, state))
     except KeyboardInterrupt:
         pass
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:

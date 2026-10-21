@@ -197,6 +197,9 @@ def apply(source):
         raise RuntimeError("Docker system-package hooks are unavailable in native mode. Install OS dependencies yourself.")
 
     system_packages.run_runtime_apt = no_container_packages
+    if os.environ.get("OMA0_SUPERVISED") == "1":
+        from helpers import process
+        process.restart_process = lambda: os._exit(75)
 
 
 async def check(source):

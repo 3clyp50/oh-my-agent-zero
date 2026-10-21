@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from oh_my_agent_zero import cli, native
 
@@ -32,6 +32,21 @@ class NativeTests(unittest.TestCase):
                 command = native.execution_command(language, "'\"$(echo bad)\n café", Path("/tmp/root"))
                 self.assertNotIn("$(echo bad)", command)
                 self.assertNotIn("\n", command)
+
+    def test_alias_mapping_does_not_change_file_contents_or_external_paths(self):
+        root = Path(tempfile.gettempdir()) / "native"
+        self.assertEqual(native.map_alias(["/a0/usr/a.txt", "s3://bucket/a", "text /a0/a"], root),
+                         [str(root / "usr/a.txt"), "s3://bucket/a", "text /a0/a"])
+
+    def test_supervisor_restarts_only_for_requested_exit_code(self):
+        children = [Mock(), Mock()]
+        for child, code in zip(children, (75, 0)):
+            child.wait.return_value = code
+            child.poll.return_value = code
+        with patch.object(cli.subprocess, "Popen", side_effect=children) as spawn:
+            cli.serve(Path(tempfile.gettempdir()), {"node": "node", "framework": "framework"}, 50001)
+            self.assertEqual(spawn.call_count, 2)
+            self.assertEqual(spawn.call_args.kwargs["env"]["OMA0_SUPERVISED"], "1")
 
     def test_install_failure_restores_code_and_state(self):
         with tempfile.TemporaryDirectory() as folder:
