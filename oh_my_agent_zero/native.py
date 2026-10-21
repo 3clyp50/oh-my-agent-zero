@@ -270,12 +270,12 @@ def apply(source):
     @functools.wraps(original_prompt)
     def read_prompt(_file, *args, **kwargs):
         if Path(_file).name == "agent.system.main.environment.md":
+            console_note = "PowerShell uses redirected streams. Avoid Read-Host and console-only interfaces; use noninteractive commands.\n" if os.name == "nt" else ""
             return (
                 f"## Environment\nYou run directly on {platform.system()} {platform.machine()}, "
                 f"as the current OS user, outside Docker.\nFramework directory: {source}\n"
                 f"Shell: {'PowerShell' if os.name == 'nt' else 'Bash'}. Use this OS's syntax and native paths.\n"
-                + ("PowerShell uses redirected streams. Avoid Read-Host and console-only interfaces; use noninteractive commands.\n" if os.name == "nt" else "")
-                +
+                f"{console_note}"
                 f"Task Python: {os.environ['OMA0_EXECUTION_PYTHON']}\n"
                 f"Framework Python: {sys.executable}\n"
                 "Install task packages into task Python; keep framework dependencies separate.\n"
