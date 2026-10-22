@@ -17,6 +17,8 @@ jobs:
       OMA0_HOME: ${{ github.workspace }}/.local
       OMA0_PACKAGE_SPEC: ${{ github.workspace }}
       PYTHONUTF8: '1'
+      PYTHONFAULTHANDLER: '1'
+      PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

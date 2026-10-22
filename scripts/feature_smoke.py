@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--models", action="store_true", help="Also download/run the actual embedding and speech models")
     args = parser.parse_args()
     home = default_home()
+    print("Checking base document and memory support…", flush=True)
     state = read_state(home)
     framework = home / state["framework"]
     if os.environ.get("OMA0_FEATURE_TEST_CHILD") != "1":
@@ -92,6 +93,7 @@ def main():
     document = FetchedDocument("native.docx", "file", "application/octet-stream", office_bytes)
     assert "BASE_OFFICE_OK" in asyncio.run(UnstructuredParser().parse(document, {}, timeout=30))
     # Import availability is cached before optional installation: exercise a real table backbone.
+    print("Checking table-model initialization after optional setup…", flush=True)
     import torch
     from transformers import TableTransformerConfig, TableTransformerForObjectDetection
     config = TableTransformerConfig(
@@ -100,6 +102,7 @@ def main():
         encoder_ffn_dim=32, decoder_ffn_dim=32, num_queries=2,
     )
     model = TableTransformerForObjectDetection(config).eval()
+    print("Checking table-model inference…", flush=True)
     with torch.no_grad():
         assert model(torch.zeros(1, 3, 64, 64)).logits.shape[1] == 2
     after = {d.metadata["Name"].lower(): d.version for d in importlib.metadata.distributions()}
