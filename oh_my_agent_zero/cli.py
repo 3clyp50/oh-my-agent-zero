@@ -98,6 +98,10 @@ def environment(home, state):
     env["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "browsers")
     env["A0_BROWSER_PLAYWRIGHT_CACHE_DIR"] = str(home / "browsers")
     env["NLTK_DATA"] = str(home / "source/tmp/nltk_data")
+    if sys.platform == "darwin":
+        # Keep the native ML libraries from creating competing CPU worker pools.
+        for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+            env.setdefault(name, "1")
     return env
 
 

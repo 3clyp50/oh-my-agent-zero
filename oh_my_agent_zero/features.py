@@ -168,7 +168,18 @@ def wrap_async(module, name, feature, source, whisper=False):
 
 def adapt(module, source):
     name = module.__name__
-    if name == "plugins._whisper_stt.helpers.runtime":
+    if name == "magic.loader":
+        original = module._lib_candidates
+
+        def native_libraries():
+            # Git's MSYS/Cygwin DLLs require their own runtime and can hang native CPython.
+            for candidate in original():
+                if candidate and any(part in str(candidate).lower() for part in ("msys-", "cygmagic", "cygwin")):
+                    continue
+                yield candidate
+
+        module._lib_candidates = native_libraries
+    elif name == "plugins._whisper_stt.helpers.runtime":
         wrap_async(module, "_preload", "speech-input", source, whisper=True)
     elif name == "plugins._kokoro_tts.helpers.runtime":
         for method in ("preload", "synthesize_sentences"):
@@ -212,12 +223,15 @@ class FeatureFinder(importlib.abc.MetaPathFinder):
         "plugins._whisper_stt.helpers.runtime", "plugins._kokoro_tts.helpers.runtime",
         "plugins._kokoro_tts.hooks", "plugins._browser.helpers.runtime",
         "plugins._document_query.helpers.parsers.unstructured", "plugins._document_query.helpers.parsers.image",
+        "magic.loader",
     }
 
     def __init__(self, source):
         self.source = source
 
     def find_spec(self, fullname, path=None, target=None):
+        if fullname == "magic.loader" and os.name != "nt":
+            return None
         if fullname in self.MODULES:
             spec = importlib.machinery.PathFinder.find_spec(fullname, path)
             if spec and spec.origin:

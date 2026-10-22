@@ -132,6 +132,12 @@ class FeatureTests(unittest.TestCase):
             data.assert_called_once_with(Path("source"))
             ensure.assert_not_called()
 
+    def test_windows_magic_uses_native_libraries_or_upstream_fallback(self):
+        module = ModuleType("magic.loader")
+        module._lib_candidates = lambda: iter([None, "C:/Git/usr/bin/msys-magic-1.dll", "cygmagic-1.dll", "C:/native/libmagic.dll"])
+        features.adapt(module, Path("source"))
+        self.assertEqual(list(module._lib_candidates()), [None, "C:/native/libmagic.dll"])
+
 
 if __name__ == "__main__":
     unittest.main()

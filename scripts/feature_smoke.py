@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import faulthandler
 import importlib.metadata
 import importlib.util
 import io
@@ -29,6 +30,7 @@ def main():
         subprocess.run([str(python_in(framework)), str(Path(__file__).resolve()), *sys.argv[1:]], env=env, check=True)
         return
     from oh_my_agent_zero.native import apply
+    faulthandler.dump_traceback_later(90, repeat=True)
     from oh_my_agent_zero.features import ensure
     source = home / "source"
     apply(source)
