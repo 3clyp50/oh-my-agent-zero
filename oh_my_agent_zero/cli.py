@@ -158,7 +158,7 @@ def install(home, branch="main", update=False):
         requirements.parent.mkdir(parents=True, exist_ok=True)
         requirements.write_text(base, encoding="utf-8")
         run("uv", "pip", "install", "--python", py, "--torch-backend", "cpu",
-            "-r", requirements, "ddgs>=9,<10", "nodeenv>=1.9,<2")
+            "-r", requirements, "ddgs>=9,<10", "nodeenv>=1.9,<2", "timm>=1,<2")
         if not python_in(home / "execution").exists():
             run("uv", "venv", "--seed", "--python", "3.13", home / "execution")
         run("uv", "pip", "install", "--python", python_in(home / "execution"), "ipython", "requests")

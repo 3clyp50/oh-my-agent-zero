@@ -40,6 +40,8 @@ def main():
     import fitz
     import numpy as np
     import models
+    from transformers.utils import is_timm_available, is_torchvision_available
+    assert is_timm_available() and is_torchvision_available(), "Vision helpers must be discovered at initial import"
     from plugins._document_query.helpers.fetch import FetchedDocument
     from plugins._document_query.helpers.parsers import PdfParser, UnstructuredParser
     from plugins._whisper_stt.helpers import runtime as stt
@@ -89,6 +91,17 @@ def main():
     # A real document parser triggers installation before its short parsing deadline.
     document = FetchedDocument("native.docx", "file", "application/octet-stream", office_bytes)
     assert "BASE_OFFICE_OK" in asyncio.run(UnstructuredParser().parse(document, {}, timeout=30))
+    # Import availability is cached before optional installation: exercise a real table backbone.
+    import torch
+    from transformers import TableTransformerConfig, TableTransformerForObjectDetection
+    config = TableTransformerConfig(
+        backbone="resnet18", use_pretrained_backbone=False,
+        encoder_layers=1, decoder_layers=1, d_model=32,
+        encoder_ffn_dim=32, decoder_ffn_dim=32, num_queries=2,
+    )
+    model = TableTransformerForObjectDetection(config).eval()
+    with torch.no_grad():
+        assert model(torch.zeros(1, 3, 64, 64)).logits.shape[1] == 2
     after = {d.metadata["Name"].lower(): d.version for d in importlib.metadata.distributions()}
     assert all(after.get(name) == version for name, version in before.items()), "Optional setup changed a base dependency"
     if args.models:

@@ -57,7 +57,7 @@ The base includes chat, providers, local memory embeddings, code execution, PDF 
 
 Preparation runs in a worker thread, reports progress through notifications and server logs, and resumes the requested operation. Failed downloads can be retried. Installed base package versions are pinned during optional setup; an incompatible dependency fails preparation rather than upgrading the running framework. Completed features are reused for that framework environment.
 
-Allow several GB of disk space. A fresh Linux x64 base with the connector, both Python runtimes, and the local embedding model measured about **2.75 GB**, versus **4.94 GB** with all runtime libraries and Chromium installed initially. These measurements exclude package-download caches and existing system dependencies; Node was already installed. Other platforms and later feature downloads differ.
+Allow several GB of disk space. A fresh Linux x64 base with the connector, both Python runtimes, and the local embedding model uses about **2.8 GB**, versus **4.94 GB** with all runtime libraries and Chromium installed initially. These measurements exclude package-download caches and existing system dependencies; Node was already installed. Other platforms and later feature downloads differ. The small timm/TorchVision helpers stay in the base so Transformers discovers them at startup; advanced document models can then load after installation without restarting the server.
 
 Linux may need Chromium shared libraries installed through your distribution's package manager; browser launch reports missing libraries. Speech and OCR still need their ordinary host programs, such as FFmpeg or Tesseract. The launcher does not install system packages.
 

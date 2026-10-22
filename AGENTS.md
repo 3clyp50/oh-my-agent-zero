@@ -21,6 +21,7 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 - Host commands run with the current user's permissions. Never claim sandbox isolation.
 - Framework dependencies and agent task dependencies belong in separate virtual environments.
 - Keep memory embeddings and ordinary document readers in the base. Defer only speech, advanced document analysis, and Chromium; startup/status checks must not install them.
+- Keep timm/TorchVision in the base: Transformers caches backend availability at its first import. Verify table-model inference after optional installation without reloading Transformers.
 - Optional preparation must preserve installed package versions, serialize concurrent requests, and write readiness only after successful dependency/data preparation. Keep document tokenizers in the managed private cache.
 - Failed preparation must preserve the active revision and environment. Never overwrite user data or force a dirty checkout.
 - Never commit credentials, runtime directories, chat logs, or provider test output.
