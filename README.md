@@ -6,7 +6,7 @@ Native execution gives the agent your account's filesystem and command permissio
 
 ## Install
 
-Install Git first, then run one command below. The installer sets up **oh-my-agent-zero and [a0-connector](https://github.com/agent0ai/a0-connector)** together, including [uv](https://docs.astral.sh/uv/getting-started/installation/) when needed, Python, isolated environments, and Chromium. An existing Node.js is used, or Node LTS is downloaded locally. No administrator privileges are requested.
+Install Git first, then run one command below. The installer sets up **oh-my-agent-zero and [a0-connector](https://github.com/agent0ai/a0-connector)** together, including [uv](https://docs.astral.sh/uv/getting-started/installation/) when needed, Python, and isolated environments. An existing Node.js is used, or Node LTS is downloaded locally. No administrator privileges are requested.
 
 Linux / macOS:
 
@@ -46,7 +46,20 @@ a0-native start
 
 These commands also work in PowerShell. Stop the server with Ctrl+C. `oh-my-agent-zero` is an alias for `a0-native`. The launcher supervises WebUI-requested restarts and retains the installation lock until the server stops.
 
-The first installation downloads upstream's Python dependencies, including local embedding and speech models' libraries, plus Chromium. Allow several GB of disk space. Linux may need Chromium shared libraries installed through your distribution's package manager; installation checks launch Chromium and report missing libraries.
+The base includes chat, providers, local memory embeddings, code execution, PDF extraction, and ordinary Word, spreadsheet, and presentation readers. Only heavyweight optional features are deferred:
+
+| Feature | Automatic preparation |
+| --- | --- |
+| Browser automation | Downloads Chromium on the first browser action. |
+| Local microphone transcription | Installs upstream Whisper and its dependencies on first preload/transcription, then downloads the selected model. |
+| Local speech output | Installs the local speech and pronunciation dependencies on first synthesis/preload, then downloads the selected voice model. Browser speech remains upstream's fallback. |
+| Advanced document analysis | Installs upstream's full Unstructured document stack for images or other formats beyond the basic readers. Small tokenizer data downloads on first office-document use. |
+
+Preparation runs in a worker thread, reports progress through notifications and server logs, and resumes the requested operation. Failed downloads can be retried. Installed base package versions are pinned during optional setup; an incompatible dependency fails preparation rather than upgrading the running framework. Completed features are reused for that framework environment.
+
+Allow several GB of disk space. A fresh Linux x64 base with the connector, both Python runtimes, and the local embedding model measured about **2.75 GB**, versus **4.94 GB** with all runtime libraries and Chromium installed initially. These measurements exclude package-download caches and existing system dependencies; Node was already installed. Other platforms and later feature downloads differ.
+
+Linux may need Chromium shared libraries installed through your distribution's package manager; browser launch reports missing libraries. Speech and OCR still need their ordinary host programs, such as FFmpeg or Tesseract. The launcher does not install system packages.
 
 ## Updates and data
 
@@ -61,7 +74,7 @@ Update this launcher with `uv tool upgrade oh-my-agent-zero`, then run `a0-nativ
 
 Update the connector separately with `a0 update`.
 
-`a0-native status` prints the revision and paths. `a0-native doctor` checks the real framework, shell, Python, Node.js, and Chromium without a model key. `--home PATH` before the command or `OMA0_HOME` selects another installation. Defaults:
+`a0-native status` prints the revision and paths. `a0-native doctor` checks the real framework, optional-feature interfaces, shell, Python, and Node.js without a model key. It also launches Chromium if already downloaded; otherwise it reports the download as deferred. `--home PATH` before the command or `OMA0_HOME` selects another installation. Defaults:
 
 | OS | Directory |
 | --- | --- |
@@ -69,7 +82,7 @@ Update the connector separately with `a0 update`.
 | macOS | `~/Library/Application Support/oh-my-agent-zero` |
 | Windows | `%LOCALAPPDATA%\oh-my-agent-zero` |
 
-Settings, credentials, chats, plugins, projects, and work files live under `source/usr`. Framework packages live under `environments/<commit>-<adapter>/framework`; agent task packages live under `execution`. Keep these environments separate. Old framework environments are retained for manual recovery.
+Settings, credentials, chats, plugins, projects, and work files live under `source/usr`. Framework packages live under `environments/<commit>-<adapter>/framework`; agent task packages live under `execution`. Keep these environments separate. Old framework environments are retained for manual recovery, so upgrading an existing installation does not immediately reclaim their disk space. Each new environment prepares optional features again when needed, reusing uv's download cache.
 
 ## Native behavior
 
@@ -95,3 +108,5 @@ python -m oh_my_agent_zero --home .local doctor
 Platform verification and known limits are recorded in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 For installer development, `OMA0_PACKAGE_SPEC` overrides the launcher package source; CI sets it to the checked-out repository. `python scripts/smoke.py --connector` additionally tests a real connector chat against the disposable native server.
+
+On a fresh disposable installation, `python scripts/smoke.py --connector --deferred` checks that startup and speech status requests leave heavyweight features deferred, then exercises first-use Chromium preparation. `python scripts/feature_smoke.py` checks basic PDF/Word extraction, memory interfaces, optional dependency preparation, document parsing, and unchanged base versions. Add `--models` to run real local embeddings, Whisper CPU inference, and Paradee speech synthesis; this downloads the models.

@@ -91,6 +91,7 @@ class NativeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder)
             (home / "source").mkdir()
+            (home / "source/requirements.txt").write_text("openai-whisper==1\nkokoro>=1\nunstructured[all-docs]==1\n")
             state = {"revision": "old", "branch": "main", "framework": "old-env", "node": "node"}
             cli.save_state(home, state)
             calls = []
@@ -160,7 +161,8 @@ class NativeTests(unittest.TestCase):
             git_at(upstream, "init", "-b", "main")
             git_at(upstream, "config", "user.name", "Native test")
             git_at(upstream, "config", "user.email", "native@example.invalid")
-            (upstream / "requirements.txt").write_text("")
+            requirements = "openai-whisper==1\nkokoro>=1\nunstructured[all-docs]==1\n"
+            (upstream / "requirements.txt").write_text(requirements)
             git_at(upstream, "add", ".")
             git_at(upstream, "commit", "-m", "baseline")
             home.mkdir()
@@ -181,7 +183,7 @@ class NativeTests(unittest.TestCase):
                         raise RuntimeError("candidate rejected")
 
             for fail in (True, False):
-                (upstream / "requirements.txt").write_text("# new revision\n" + str(fail))
+                (upstream / "requirements.txt").write_text(requirements + "# new revision " + str(fail))
                 git_at(upstream, "add", ".")
                 git_at(upstream, "commit", "-m", "update")
                 with patch.object(cli, "UPSTREAM", str(upstream)), patch.object(cli.shutil, "which", return_value="tool"), patch.object(cli, "run", side_effect=prepare):

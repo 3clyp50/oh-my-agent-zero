@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-agent-zero"
-version = "0.1.0"
+version = "0.2.0"
 description = "Run upstream Agent Zero directly on Windows, macOS, and Linux."
 readme = "README.md"
 requires-python = ">=3.12"

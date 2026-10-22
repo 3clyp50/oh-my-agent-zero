@@ -33,6 +33,7 @@ def free_port():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--connector", action="store_true", help="Also test the installed a0 CLI against this disposable server")
+    parser.add_argument("--deferred", action="store_true", help="Require a fresh base installation and test first browser download")
     args = parser.parse_args()
     home = default_home()
     state = read_state(home)
@@ -169,6 +170,14 @@ def main():
         opener, api, runtime_id = client()
         print("WebUI ready; checking CSRF and dispatching real agent tools...", flush=True)
         assert b"Agent Zero" in opener.open(base).read()
+        if args.deferred:
+            framework = home / state["framework"]
+            assert not (framework / "native-features").exists(), "Startup installed an optional feature"
+            assert not (home / "browsers").exists(), "Startup downloaded Chromium"
+            for feature in ("_whisper_stt", "_kokoro_tts"):
+                status = api(f"/api/plugins/{feature}/status", {})
+                assert not status["model"]["ready"], status
+            assert not (framework / "native-features").exists(), "Reading speech status installed a feature"
         try:
             opener.open(Request(base + "/api/message", data=b'{}', headers={"Content-Type": "application/json"}))
             raise AssertionError("Missing CSRF token was accepted")
@@ -176,6 +185,8 @@ def main():
             assert exc.code == 403
         message = api("/api/message", {"text": "native-smoke-run: execute the native tool checks.", "context": ""})
         assert "NATIVE_SMOKE_COMPLETE" in message["message"], message
+        if args.deferred:
+            assert (home / state["framework"] / "native-features/browser.json").exists(), "Browser use did not prepare Chromium"
         context = message["context"]
         for name in ("python", "node", "terminal"):
             proof = workdir / f"{name}-check.txt"

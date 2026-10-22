@@ -51,7 +51,10 @@ jobs:
         run: ./scripts/install.ps1
       - name: HTTP, tools, persistence, and update checks
         timeout-minutes: 8
-        run: python scripts/smoke.py --connector
+        run: python scripts/smoke.py --connector --deferred
+      - name: Deferred speech and document dependencies
+        timeout-minutes: 12
+        run: python scripts/feature_smoke.py
       - name: Update without changing user data
         run: python -m oh_my_agent_zero update
       - name: Check source integrity

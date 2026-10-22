@@ -94,8 +94,10 @@ def environment(home, state):
     env["PYTHONUTF8"] = "1"
     env["OMA0_EXECUTION_PYTHON"] = str(python_in(home / "execution"))
     env["OMA0_NODE"] = state["node"]
+    env["OMA0_UV"] = state.get("uv", shutil.which("uv") or "uv")
     env["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "browsers")
     env["A0_BROWSER_PLAYWRIGHT_CACHE_DIR"] = str(home / "browsers")
+    env["NLTK_DATA"] = str(home / "source/tmp/nltk_data")
     return env
 
 
@@ -144,14 +146,19 @@ def install(home, branch="main", update=False):
         run(*adapter_command(home, previous, "--check"), env=environment(home, previous))
         print("Upstream is current; native checks passed.")
         return
-    state = {"revision": revision, "branch": branch, "framework": str(framework)}
+    state = {"revision": revision, "branch": branch, "framework": str(framework), "uv": shutil.which("uv")}
     try:
         run("git", "-C", source, "checkout", "--detach", revision)
         if not python_in(home / framework).exists():
             run("uv", "venv", "--seed", "--python", "3.12", home / framework)
         py = python_in(home / framework)
+        from oh_my_agent_zero.features import split_requirements
+        base, _ = split_requirements(source)
+        requirements = (home / framework).parent / "base-requirements.txt"
+        requirements.parent.mkdir(parents=True, exist_ok=True)
+        requirements.write_text(base, encoding="utf-8")
         run("uv", "pip", "install", "--python", py, "--torch-backend", "cpu",
-            "-r", source / "requirements.txt", "ddgs>=9,<10", "nodeenv>=1.9,<2")
+            "-r", requirements, "ddgs>=9,<10", "nodeenv>=1.9,<2")
         if not python_in(home / "execution").exists():
             run("uv", "venv", "--seed", "--python", "3.13", home / "execution")
         run("uv", "pip", "install", "--python", python_in(home / "execution"), "ipython", "requests")
@@ -162,7 +169,6 @@ def install(home, branch="main", update=False):
                 run(py, "-m", "nodeenv", "--node=lts", "--prebuilt", home / "node")
         state["node"] = node
         env = environment(home, state)
-        run(py, "-m", "patchright", "install", "chromium", "--no-shell", env=env)
         seed_native_data(source)
         run(*adapter_command(home, state, "--check"), env=env)
         save_state(home, state)

@@ -230,6 +230,8 @@ def apply(source):
     if getattr(runtime, "_oma0_applied", False):
         return
     runtime._oma0_applied = True
+    from oh_my_agent_zero import features
+    sys.meta_path.insert(0, features.FeatureFinder(source))
     runtime.initialize()
     runtime.args.pop("dockerized", None)
     runtime.is_development = lambda: False
@@ -338,6 +340,7 @@ def apply(source):
     @functools.wraps(original_import)
     def import_module(file_path):
         module = original_import(file_path)
+        features.adapt_dynamic(module, source)
         if Path(module.__file__).resolve() == code_file:
             adapt_code_execution(module, source)
         elif Path(module.__file__).resolve() == source / "api/tunnel_proxy.py":
@@ -447,16 +450,22 @@ async def check(source):
     finally:
         await shell.close()
     binary = get_playwright_binary()
-    assert binary, "Chromium was not installed"
-    async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(executable_path=str(binary), headless=True)
-        try:
-            page = await browser.new_page()
-            await page.goto("data:text/html,<h1>native-browser-ok</h1>")
-            assert await page.locator("h1").inner_text() == "native-browser-ok"
-        finally:
-            await browser.close()
-    print("Native checks passed: framework imports, paths, local calls, Bash/PowerShell, Python, Node.js, Chromium.", flush=True)
+    if binary:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(executable_path=str(binary), headless=True)
+            try:
+                page = await browser.new_page()
+                await page.goto("data:text/html,<h1>native-browser-ok</h1>")
+                assert await page.locator("h1").inner_text() == "native-browser-ok"
+            finally:
+                await browser.close()
+    else:
+        print("Chromium download deferred until first browser use.", flush=True)
+    from plugins._whisper_stt.helpers import runtime as stt
+    from plugins._kokoro_tts.helpers import runtime as tts
+    from plugins._document_query.helpers.parsers import UnstructuredParser
+    assert callable(stt.transcribe) and callable(tts.synthesize_sentences) and callable(UnstructuredParser.parse)
+    print("Native checks passed: framework imports, paths, local calls, Bash/PowerShell, Python, Node.js, optional feature interfaces.", flush=True)
 
 
 def main():

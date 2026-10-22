@@ -18,6 +18,9 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 | Windows storage | Flushed temporary files and write-through atomic replacement, preserving upload limits and conflict checks without POSIX directory descriptors. |
 | Prompts | Environment section reports actual platform, runtime paths, permissions, and available surfaces. |
 | Browser | Patchright Chromium; macOS bundle discovery added. DOM automation and screenshots use the host browser process. |
+| Optional dependencies | Keep upstream embedding and basic office readers; defer Whisper, local speech dependencies, full Unstructured analysis, and Chromium until use. Canonical imports and dynamic startup hooks receive the adaptations. |
+| Speech imports | Defer Whisper's eager import in memory until model preload. Fail compatibility checks if that import changes. Keep eSpeak pronunciation data in a short private temporary path to avoid native library path limits. |
+| Feature preparation | Serialize requests, constrain all installed package versions, and mark success only after preparation. Install before the per-document parsing deadline; failed downloads remain retryable. |
 | Search | DDGS or an explicitly configured SearXNG JSON endpoint. |
 | Tunnel status | Local tunnel manager, without probing Docker's separate port-55520 service during CSRF/bootstrap. |
 | Docker services | Desktop and Office desktop plugins excluded; system-package repair hooks cannot modify the host. |
@@ -25,7 +28,7 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 
 ## Verification
 
-The test suite covers quoting, path mapping, exclusive process locking, dirty checkout rejection, atomic state writes, and failed update preparation. `doctor` launches the actual native PTY, task Python, Node, and Chromium.
+The test suite covers quoting, path mapping, exclusive process locking, dirty checkout rejection, atomic state writes, failed update preparation, deferred imports, concurrent optional setup, and retry after failure. `doctor` launches the actual native PTY, task Python, and Node. It launches Chromium when installed and otherwise leaves its download deferred.
 
 `scripts/smoke.py` starts the real WebUI and a deterministic local OpenAI-compatible fixture. It exercises real agent tool dispatch and checks Python, Node, terminal output and files, editor write/patch/read, Chromium, search routing, attachments, file uploads and replacement, file browsing, Time Travel snapshots, chat persistence, and supervised WebUI restart. This fixture is not a real provider test. It refuses to replace an existing provider configuration.
 
@@ -37,7 +40,7 @@ On October 21, 2026, [the native integration workflow passed](https://github.com
 
 Separately, the public Git installation and launcher upgrade commands were exercised on Ubuntu with a real Opus provider preset: Python and Node executed locally, a file was written and read through the text editor, and the conversation survived restart. Provider configuration and the verification file remained byte-for-byte unchanged across launcher/runtime updates. Real login and CSRF enforcement were checked locally. Paid-provider credentials and chat logs are not part of this repository.
 
-CI uses a deterministic search endpoint; live DDGS results, speech, desktop applications, and every third-party plugin have not been validated. The Node download fallback was exercised on Linux; platform CI uses a preinstalled Node.
+CI uses a deterministic search endpoint. `scripts/feature_smoke.py` additionally verifies base PDF/Word extraction, FAISS persistence/search, optional speech/document packages, and unchanged base versions. Its `--models` mode was exercised on Linux with real local sentence-transformer embeddings, Whisper tiny CPU inference, and Paradee speech synthesis. Platform CI checks optional dependencies without speech-model downloads. Live DDGS results, desktop applications, and every third-party plugin have not been validated. The Node download fallback was exercised on Linux; platform CI uses a preinstalled Node.
 
 ## Limits
 

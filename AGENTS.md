@@ -9,6 +9,7 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 - `oh_my_agent_zero/cli.py`: installation, isolated environments, updates, process lock, commands.
 - `oh_my_agent_zero/native.py`: startup compatibility layer and native execution.
 - `oh_my_agent_zero/windows.py`: flushed atomic file replacement on Windows; preserve upload validation and conflict checks.
+- `oh_my_agent_zero/features.py`: base requirement selection, first-use preparation, dependency constraints, and optional-feature import adaptations.
 - `tests/`: launcher tests and integration checks against real upstream modules.
 - `scripts/` and `.github/workflows/`: bootstrap and platform verification.
 
@@ -19,6 +20,8 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 - Preserve upstream authentication, CSRF, data persistence, and tool lifecycle behavior.
 - Host commands run with the current user's permissions. Never claim sandbox isolation.
 - Framework dependencies and agent task dependencies belong in separate virtual environments.
+- Keep memory embeddings and ordinary document readers in the base. Defer only speech, advanced document analysis, and Chromium; startup/status checks must not install them.
+- Optional preparation must preserve installed package versions, serialize concurrent requests, and write readiness only after successful dependency/data preparation. Keep document tokenizers in the managed private cache.
 - Failed preparation must preserve the active revision and environment. Never overwrite user data or force a dirty checkout.
 - Never commit credentials, runtime directories, chat logs, or provider test output.
 - No automatic system package installation, privileged commands, or container service cleanup.
