@@ -89,6 +89,7 @@ Settings, credentials, chats, plugins, projects, and work files live under `sour
 - Upstream WebUI, model providers, conversations, local files, tools, plugins, and scheduler run in the host Python process.
 - Local code execution uses upstream's persistent terminal sessions. Python uses an isolated Python 3.13 environment; Node supports asynchronous code.
 - Windows connects PowerShell through standard streams. Use noninteractive commands; console-only interfaces such as `Read-Host` need a separate interactive terminal.
+- macOS ML CPU worker pools default to one thread. Existing `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, and `MKL_NUM_THREADS` settings are preserved.
 - File and skill operations stay local. Legacy `/a0/...` aliases resolve to the native checkout. The system prompt describes the actual OS, permissions, paths, and Python environments.
 - Search uses DDGS without a SearXNG daemon. Set `OMA0_SEARXNG_URL` to an existing SearXNG JSON search endpoint to use it instead.
 - Chromium runs locally. Browser automation and screenshots work without the Docker desktop. The Xpra interactive browser viewer, bundled Linux desktop, and Office desktop integration are excluded because they manage Docker-specific system packages and services.

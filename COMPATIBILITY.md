@@ -20,6 +20,8 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 | Browser | Patchright Chromium; macOS bundle discovery added. DOM automation and screenshots use the host browser process. |
 | Optional dependencies | Keep upstream embedding and basic office readers; defer Whisper, local speech dependencies, full Unstructured analysis, and Chromium until use. Canonical imports and dynamic startup hooks receive the adaptations. |
 | Speech imports | Defer Whisper's eager import in memory until model preload. Fail compatibility checks if that import changes. Keep eSpeak pronunciation data in a short private temporary path to avoid native library path limits. |
+| Windows document detection | Exclude Git/MSYS and Cygwin libmagic DLLs from native Python; retain native DLL lookup and upstream's pure-Python fallback. |
+| macOS CPU workers | Default OpenMP, OpenBLAS, and MKL worker counts to one before native libraries load; preserve user-provided values. |
 | Feature preparation | Serialize requests, constrain all installed package versions, and mark success only after preparation. Install before the per-document parsing deadline; failed downloads remain retryable. |
 | Search | DDGS or an explicitly configured SearXNG JSON endpoint. |
 | Tunnel status | Local tunnel manager, without probing Docker's separate port-55520 service during CSRF/bootstrap. |

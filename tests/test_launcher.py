@@ -10,6 +10,14 @@ from oh_my_agent_zero import cli, native, windows
 
 
 class NativeTests(unittest.TestCase):
+    def test_macos_cpu_defaults_preserve_user_configuration(self):
+        state = {"node": "node", "framework": "framework"}
+        with patch.object(cli.sys, "platform", "darwin"), patch.dict(os.environ, {}, clear=True):
+            env = cli.environment(Path(tempfile.gettempdir()), state)
+            self.assertEqual([env[name] for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS")], ["1"] * 3)
+            with patch.dict(os.environ, {"OMP_NUM_THREADS": "4"}):
+                self.assertEqual(cli.environment(Path(tempfile.gettempdir()), state)["OMP_NUM_THREADS"], "4")
+
     def test_time_travel_serializes_watchdog_and_http_writers(self):
         from concurrent.futures import ThreadPoolExecutor
         from types import SimpleNamespace
