@@ -121,6 +121,9 @@ def seed_native_data(source):
 
 def install(home, branch="main", update=False, progress=print):
     progress("Fetching the official Agent Zero source...")
+    uv_bin = Path.home() / ".local/bin"
+    if not shutil.which("uv") and (uv_bin / ("uv.exe" if os.name == "nt" else "uv")).is_file():
+        os.environ["PATH"] = str(uv_bin) + os.pathsep + os.environ.get("PATH", "")
     for command in ("git", "uv"):
         if not shutil.which(command):
             raise RuntimeError(f"{command} is required. See the installation instructions.")

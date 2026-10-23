@@ -1,5 +1,6 @@
 from http.client import HTTPConnection
 import json
+import os
 from pathlib import Path
 import socket
 import tempfile
@@ -16,6 +17,18 @@ def free_port():
 
 
 class SetupTests(unittest.TestCase):
+    def test_newly_bootstrapped_uv_is_found_before_shell_path_refresh(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            uv = root / ".local/bin" / ("uv.exe" if os.name == "nt" else "uv")
+            uv.parent.mkdir(parents=True)
+            uv.touch()
+            uv.chmod(0o755)
+            with patch.object(cli.Path, "home", return_value=root), patch.dict(os.environ, {"PATH": ""}):
+                with self.assertRaisesRegex(RuntimeError, "git is required"):
+                    cli.install(root / "installation")
+                self.assertEqual(Path(cli.shutil.which("uv")), uv)
+
     def request(self, port, headers=None, path="/"):
         connection = HTTPConnection("127.0.0.1", port, timeout=2)
         try:
