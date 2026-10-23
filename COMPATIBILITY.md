@@ -6,6 +6,7 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 
 | Boundary | Adaptation |
 | --- | --- |
+| First start | A standard-library progress page runs before core installation. The existing installer prepares and checks the runtime, then the upstream WebUI takes the same port. No copied upstream UI, provider forms, or parallel dependency list. |
 | Development RFC calls | Native production mode executes upstream calls locally. Path arguments resolve legacy `/a0` aliases. |
 | Shell default | `auto` means local; explicit SSH configuration remains available. |
 | Unix / Windows | Bash without user startup files over the upstream PTY / PowerShell without user profiles over standard subprocess pipes. Both retain shell state between commands. |
@@ -36,7 +37,7 @@ The test suite covers quoting, path mapping, exclusive process locking, dirty ch
 
 GitHub Actions runs installation and integration on Ubuntu, native Windows, and macOS. The workflow result is the source of truth for the commit being tested. ARM64 Windows and Intel macOS are not in the initial CI matrix.
 
-The platform workflow runs the combined bootstrap installer, verifies the installed `a0` executable, and completes a headless connector chat against the native server. The connector is installed through its official release installer with matching dependency locks. Installer failure tests check that a failed download or component installation stops the bundle without reporting success.
+The platform workflow runs the lightweight combined bootstrap installer, verifies the installed `a0` executable, then exercises first start through the installed launcher with `scripts/startup_smoke.py`. That check requires a progress page before core setup completes, followed by the real upstream WebUI and CSRF endpoint at the same address, with heavyweight features still deferred. It also completes a headless connector chat against the native server. The connector is installed through its official release installer with matching dependency locks. Installer failure tests check that a failed download or component installation stops the bundle without reporting success. Setup tests cover the local HTTP boundary, occupied ports, failure visibility, exclusive locking, and reuse of an existing installation.
 
 On October 21, 2026, [the native integration workflow passed](https://github.com/3clyp50/oh-my-agent-zero/actions/runs/39651141735) on Ubuntu x64, Windows Server 2025 x64, and macOS 26 ARM64. The checks include installation, runtime verification, the complete HTTP/tool workflow above, update, and an unchanged upstream checkout. `doctor` also checks multiline commands, shell variable persistence, and interactive program input. Unit tests exercise real Git update activation and rollback, plus concurrent Time Travel operations.
 

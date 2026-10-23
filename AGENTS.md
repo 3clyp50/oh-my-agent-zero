@@ -7,6 +7,7 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 ## Ownership
 
 - `oh_my_agent_zero/cli.py`: installation, isolated environments, updates, process lock, commands.
+- `oh_my_agent_zero/setup_ui.py`: dependency-free, temporary first-start progress page and handoff to upstream.
 - `oh_my_agent_zero/native.py`: startup compatibility layer and native execution.
 - `oh_my_agent_zero/windows.py`: flushed atomic file replacement on Windows; preserve upload validation and conflict checks.
 - `oh_my_agent_zero/features.py`: base requirement selection, first-use preparation, dependency constraints, and optional-feature import adaptations.
@@ -27,7 +28,8 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 - Failed preparation must preserve the active revision and environment. Never overwrite user data or force a dirty checkout.
 - Never commit credentials, runtime directories, chat logs, or provider test output.
 - No automatic system package installation, privileged commands, or container service cleanup.
-- Bootstrap installs both tools; delegate connector release resolution and dependency locks to its official installer. Preserve existing connector configuration.
+- Bootstrap installs the launcher and connector; first `start` prepares the core through the existing installer. `install` remains the unattended preparation command. Delegate connector release resolution and dependency locks to its official installer. Preserve existing connector configuration.
+- Keep the setup page temporary, loopback-only, and read-only. Reject foreign Host/Origin requests, expose no credentials or installation logs, and close it before upstream takes the same port. A failed setup remains visible until Ctrl+C; retry must preserve completed installation work and user data.
 - No ponytail comments in source.
 
 ## Work Guidance
@@ -36,7 +38,7 @@ Keep the adapter small. Check callers before adapting an upstream interface. Upd
 
 ## Verification
 
-Run `python -m unittest discover -s tests -v`, then install and run `a0-native doctor` and the integration smoke script. CI runs both bootstrap scripts on their native platforms with `OMA0_PACKAGE_SPEC` pointing to the checkout, then `scripts/smoke.py --connector` against a disposable server. Verify real provider/tool behavior locally with private credentials. CI uses an explicit fake provider; it is not evidence of a paid provider call.
+Run `python -m unittest discover -s tests -v`, then install and run `a0-native doctor` and the integration smoke script. CI runs both bootstrap scripts on their native platforms with `OMA0_PACKAGE_SPEC` pointing to the checkout, then `scripts/startup_smoke.py` for fresh first start and `scripts/smoke.py --connector` against a disposable server. Verify real provider/tool behavior locally with private credentials. CI uses an explicit fake provider; it is not evidence of a paid provider call.
 
 ## Child DOX Index
 

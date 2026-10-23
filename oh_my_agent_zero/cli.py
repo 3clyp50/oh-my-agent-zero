@@ -119,7 +119,8 @@ def seed_native_data(source):
     (source / "usr/workdir").mkdir(parents=True, exist_ok=True)
 
 
-def install(home, branch="main", update=False):
+def install(home, branch="main", update=False, progress=print):
+    progress("Fetching the official Agent Zero source...")
     for command in ("git", "uv"):
         if not shutil.which(command):
             raise RuntimeError(f"{command} is required. See the installation instructions.")
@@ -153,6 +154,7 @@ def install(home, branch="main", update=False):
     state = {"revision": revision, "branch": branch, "framework": str(framework), "uv": shutil.which("uv")}
     try:
         run("git", "-C", source, "checkout", "--detach", revision)
+        progress("Preparing framework Python and core dependencies...")
         if not python_in(home / framework).exists():
             run("uv", "venv", "--seed", "--python", "3.12", home / framework)
         py = python_in(home / framework)
@@ -163,10 +165,12 @@ def install(home, branch="main", update=False):
         requirements.write_text(base, encoding="utf-8")
         run("uv", "pip", "install", "--python", py, "--torch-backend", "cpu",
             "-r", requirements, "ddgs>=9,<10", "nodeenv>=1.9,<2", "timm>=1,<2")
+        progress("Preparing the separate Python execution runtime...")
         if not python_in(home / "execution").exists():
             run("uv", "venv", "--seed", "--python", "3.13", home / "execution")
         run("uv", "pip", "install", "--python", python_in(home / "execution"), "ipython", "requests")
         node = shutil.which("node")
+        progress("Checking Node.js...")
         if not node:
             node = str(home / "node" / ("Scripts/node.exe" if os.name == "nt" else "bin/node"))
             if not Path(node).exists():
@@ -174,6 +178,7 @@ def install(home, branch="main", update=False):
         state["node"] = node
         env = environment(home, state)
         seed_native_data(source)
+        progress("Verifying the upstream runtime and local code execution...")
         run(*adapter_command(home, state, "--check"), env=env)
         save_state(home, state)
     except BaseException:
@@ -213,11 +218,14 @@ def main(argv=None):
     sub.add_parser("update", help="Prepare the latest upstream commit; preserve data")
     start = sub.add_parser("start", help="Run in the foreground; Ctrl+C stops the server")
     start.add_argument("--port", type=int, default=50001)
+    start.add_argument("--no-browser", action="store_true", help="Do not open the first-start setup page automatically")
     sub.add_parser("doctor", help="Verify the actual upstream runtime and native adapter")
     sub.add_parser("status", help="Show the active revision and data location")
     args = parser.parse_args(argv)
     home = args.home.expanduser().resolve()
     try:
+        if args.command == "start" and not 1 <= args.port <= 65535:
+            raise RuntimeError("Port must be between 1 and 65535.")
         if args.command == "status":
             state = read_state(home)
             print(json.dumps({**state, "home": str(home), "data": str(home / "source/usr")}, indent=2))
@@ -226,12 +234,14 @@ def main(argv=None):
             if args.command in ("install", "update"):
                 install(home, getattr(args, "branch", "main"), args.command == "update")
             else:
+                if args.command == "start" and not (home / "state.json").exists():
+                    from oh_my_agent_zero.setup_ui import setup_page
+                    with setup_page(args.port, open_browser=not args.no_browser) as progress:
+                        install(home, progress=progress)
                 state = read_state(home)
                 if git(home / "source", "rev-parse", "HEAD") != state["revision"]:
                     raise RuntimeError("Checkout revision does not match the installed environment.")
                 if args.command == "start":
-                    if not 1 <= args.port <= 65535:
-                        raise RuntimeError("Port must be between 1 and 65535.")
                     print(f"Agent Zero: http://127.0.0.1:{args.port}\nCommands run on this machine as your user.", flush=True)
                     serve(home, state, args.port)
                 else:

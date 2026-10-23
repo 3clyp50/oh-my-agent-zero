@@ -6,7 +6,7 @@ Native execution gives the agent your account's filesystem and command permissio
 
 ## Install
 
-Install Git first, then run one command below. The installer sets up **oh-my-agent-zero and [a0-connector](https://github.com/agent0ai/a0-connector)** together, including [uv](https://docs.astral.sh/uv/getting-started/installation/) when needed, Python, and isolated environments. An existing Node.js is used, or Node LTS is downloaded locally. No administrator privileges are requested.
+Install Git first, then run one command below. The lightweight installer sets up **the oh-my-agent-zero launcher and [a0-connector](https://github.com/agent0ai/a0-connector)** together, including [uv](https://docs.astral.sh/uv/getting-started/installation/) and launcher Python when needed. It leaves Agent Zero's core runtime for first start. No administrator privileges are requested.
 
 Linux / macOS:
 
@@ -28,7 +28,9 @@ Start Agent Zero:
 a0-native start
 ```
 
-Open **http://127.0.0.1:50001** to configure your provider. For terminal chat, run this in another terminal:
+On first start, a local setup page opens immediately at **http://127.0.0.1:50001** while the core runtime downloads. Keep the terminal open. The page automatically becomes the upstream Agent Zero WebUI when ready; configure your provider there. Later starts use the prepared runtime directly.
+
+For terminal chat, run this in another terminal once the WebUI is ready:
 
 ```sh
 a0 --host http://127.0.0.1:50001 --connect --no-docker-discovery
@@ -40,11 +42,12 @@ To install only the native runtime yourself, with Git and uv already installed:
 
 ```sh
 uv tool install --python 3.12 git+https://github.com/3clyp50/oh-my-agent-zero.git
-a0-native install
 a0-native start
 ```
 
-These commands also work in PowerShell. Stop the server with Ctrl+C. `oh-my-agent-zero` is an alias for `a0-native`. The launcher supervises WebUI-requested restarts and retains the installation lock until the server stops.
+These commands also work in PowerShell. Stop the server with Ctrl+C. Use `a0-native start --no-browser` on a headless machine, then open the printed address yourself. If setup fails, the page reports it and the terminal shows the details; press Ctrl+C and rerun the command to retry. Use `a0-native install` to prepare the full core in advance without opening a page or starting the server. An existing Node.js is used, or Node LTS is downloaded locally.
+
+`oh-my-agent-zero` is an alias for `a0-native`. The launcher supervises WebUI-requested restarts and retains the installation lock from first-start setup until the server stops.
 
 The base includes chat, providers, local memory embeddings, code execution, PDF extraction, and ordinary Word, spreadsheet, and presentation readers. Only heavyweight optional features are deferred:
 
@@ -57,7 +60,7 @@ The base includes chat, providers, local memory embeddings, code execution, PDF 
 
 Preparation runs in a worker thread, reports progress through notifications and server logs, and resumes the requested operation. Failed downloads can be retried. Installed base package versions are pinned during optional setup; an incompatible dependency fails preparation rather than upgrading the running framework. Completed features are reused for that framework environment.
 
-Allow several GB of disk space. A fresh Linux x64 base with the connector, both Python runtimes, and the local embedding model uses about **2.8 GB**, versus **4.94 GB** with all runtime libraries and Chromium installed initially. These measurements exclude package-download caches and existing system dependencies; Node was already installed. Other platforms and later feature downloads differ. The small timm/TorchVision helpers stay in the base so Transformers discovers them at startup; advanced document models can then load after installation without restarting the server.
+The lightweight bootstrap makes the setup screen available before installing the core; chat still needs that core ready. Allow several GB of disk space. A fresh Linux x64 base with the connector, both Python runtimes, and the local embedding model uses about **2.8 GB**, versus **4.94 GB** with all runtime libraries and Chromium installed initially. These measurements exclude package-download caches and existing system dependencies; Node was already installed. Other platforms and later feature downloads differ. The small timm/TorchVision helpers stay in the base so Transformers discovers them at startup; advanced document models can then load after installation without restarting the server.
 
 Linux may need Chromium shared libraries installed through your distribution's package manager; browser launch reports missing libraries. Speech and OCR still need their ordinary host programs, such as FFmpeg or Tesseract. The launcher does not install system packages.
 
@@ -98,6 +101,8 @@ Settings, credentials, chats, plugins, projects, and work files live under `sour
 
 The adapter is applied in memory at startup. It does not pretend to be Docker and does not edit upstream source. An incompatible upstream interface stops installation with an error instead of silently falling back to a container.
 
+The first-start page uses Python's standard library and exists only during setup. It delegates to the same installer as `a0-native install`, then exits before the upstream server takes over. The WebUI, provider onboarding, tools, and dependency declarations continue to come from upstream. This project maintains the small native compatibility and setup layer; upstream interface changes can still require adapter updates.
+
 ## Development
 
 ```sh
@@ -109,5 +114,7 @@ python -m oh_my_agent_zero --home .local doctor
 Platform verification and known limits are recorded in [COMPATIBILITY.md](COMPATIBILITY.md).
 
 For installer development, `OMA0_PACKAGE_SPEC` overrides the launcher package source; CI sets it to the checked-out repository. `python scripts/smoke.py --connector` additionally tests a real connector chat against the disposable native server.
+
+After the combined bootstrap, `python scripts/startup_smoke.py` exercises first start through the installed launcher in a fresh disposable home: immediate progress page, core preparation, upstream WebUI handoff, CSRF readiness, and deferred heavy features.
 
 On a fresh disposable installation, `python scripts/smoke.py --connector --deferred` checks that startup and speech status requests leave heavyweight features deferred, then exercises first-use Chromium preparation. `python scripts/feature_smoke.py` checks basic PDF/Word extraction, memory interfaces, optional dependency preparation, document parsing, and unchanged base versions. Add `--models` to run real local embeddings, Whisper CPU inference, and Paradee speech synthesis; this downloads the models.

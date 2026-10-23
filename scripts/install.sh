@@ -14,8 +14,7 @@ uv tool install --python 3.12 "${OMA0_PACKAGE_SPEC:-git+https://github.com/3clyp
 tools_bin=$(uv tool dir --bin)
 PATH="$tools_bin:$PATH"
 export PATH
-"$tools_bin/a0-native" install
 curl -fLsS https://raw.githubusercontent.com/agent0ai/a0-connector/main/install.sh -o "$installer_file"
 sh "$installer_file"
 "$tools_bin/a0" --version
-printf '\nBoth Agent Zero and a0-connector are installed.\n\nStart Agent Zero:\n  "%s/a0-native" start\n\nIn another terminal, open chat:\n  "%s/a0" --host http://127.0.0.1:50001 --connect --no-docker-discovery\n' "$tools_bin" "$tools_bin"
+printf '\nLauncher and a0-connector are installed.\n\nStart Agent Zero (first start opens setup and downloads the core runtime):\n  "%s/a0-native" start\n\nIn another terminal, open chat:\n  "%s/a0" --host http://127.0.0.1:50001 --connect --no-docker-discovery\n' "$tools_bin" "$tools_bin"

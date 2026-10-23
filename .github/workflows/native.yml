@@ -51,6 +51,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: ./scripts/install.ps1
+      - name: First-start setup and upstream WebUI handoff
+        timeout-minutes: 22
+        run: python scripts/startup_smoke.py
       - name: HTTP, tools, persistence, and update checks
         timeout-minutes: 8
         run: python scripts/smoke.py --connector --deferred
