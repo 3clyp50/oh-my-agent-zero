@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+from socketserver import TCPServer
 import threading
 import time
 import webbrowser
@@ -90,6 +91,11 @@ def setup_page(port, open_browser=True):
     class Server(ThreadingHTTPServer):
         # Windows SO_REUSEADDR can take a port already owned by another server.
         allow_reuse_address = os.name != "nt"
+
+        def server_bind(self):
+            # HTTPServer's reverse DNS lookup can stall first start on macOS.
+            TCPServer.server_bind(self)
+            self.server_name, self.server_port = self.server_address
 
     with Server(("127.0.0.1", port), Handler) as server:
         worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True)

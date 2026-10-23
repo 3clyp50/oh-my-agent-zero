@@ -40,7 +40,7 @@ class SetupTests(unittest.TestCase):
 
     def test_progress_and_local_request_boundary(self):
         port = free_port()
-        with setup_ui.setup_page(port, open_browser=False) as progress:
+        with patch.object(socket, "getfqdn", side_effect=AssertionError("Setup must not wait for DNS")), setup_ui.setup_page(port, open_browser=False) as progress:
             code, headers, body = self.request(port)
             self.assertEqual(code, 200)
             self.assertIn(b"Preparing Agent Zero", body)
