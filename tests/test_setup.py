@@ -4,7 +4,7 @@ from pathlib import Path
 import socket
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from oh_my_agent_zero import cli, setup_ui
 

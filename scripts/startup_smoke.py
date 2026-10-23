@@ -78,6 +78,8 @@ def main():
                 except subprocess.TimeoutExpired:
                     server.kill()
                     server.wait()
+    # First boot creates default presets; leave provider-fixture setup to smoke.py.
+    (home / "source/usr/plugins/_model_config/presets.yaml").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
