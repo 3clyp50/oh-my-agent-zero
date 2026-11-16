@@ -1,6 +1,6 @@
 # Compatibility and verification
 
-The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9c9c4e490ba38dd7c313e779510bb2071a`. Updates fetch the current branch and test its actual interfaces before activating a new environment.
+The first implementation targeted upstream `agent0ai/agent-zero` main at `ff2a5b9c9c4e490ba38dd7c313e779510bb2071a`. Compatibility checks now also support the search plugin layout in upstream main at `ba9b67df0f54ac78106ae85c552ef5d2458f7c9a`. Updates fetch the current branch and test its actual interfaces before activating a new environment.
 
 ## Runtime boundaries
 
@@ -24,14 +24,14 @@ The first implementation targets upstream `agent0ai/agent-zero` main at `ff2a5b9
 | Windows document detection | Exclude Git/MSYS and Cygwin libmagic DLLs from native Python; retain native DLL lookup and upstream's pure-Python fallback. |
 | macOS CPU workers | Default OpenMP, OpenBLAS, and MKL worker counts to one before native libraries load; preserve user-provided values. |
 | Feature preparation | Serialize requests, constrain all installed package versions, and mark success only after preparation. Install before the per-document parsing deadline; failed downloads remain retryable. |
-| Search | DDGS or an explicitly configured SearXNG JSON endpoint. |
+| Search | DDGS or an explicitly configured SearXNG JSON endpoint. Verification imports the current search plugin, with the earlier core-tool path retained for existing installations. |
 | Tunnel status | Local tunnel manager, without probing Docker's separate port-55520 service during CSRF/bootstrap. |
 | Docker services | Desktop and Office desktop plugins excluded; system-package repair hooks cannot modify the host. |
 | Updates | Official Git upstream, clean checkout, fast-forward check, prepared environment, rollback of code on preparation failure. |
 
 ## Verification
 
-The test suite covers quoting, path mapping, exclusive process locking, dirty checkout rejection, atomic state writes, failed update preparation, deferred imports, concurrent optional setup, and retry after failure. `doctor` launches the actual native PTY, task Python, and Node. It launches Chromium when installed and otherwise leaves its download deferred.
+The test suite covers quoting, path mapping, exclusive process locking, dirty checkout rejection, atomic state writes, failed update preparation, both search-tool layouts and missing-tool rejection, deferred imports, concurrent optional setup, and retry after failure. `doctor` launches the actual native PTY, task Python, and Node. It launches Chromium when installed and otherwise leaves its download deferred.
 
 `scripts/smoke.py` starts the real WebUI and a deterministic local OpenAI-compatible fixture. It exercises real agent tool dispatch and checks Python, Node, terminal output and files, editor write/patch/read, Chromium, search routing, attachments, file uploads and replacement, file browsing, Time Travel snapshots, chat persistence, and supervised WebUI restart. This fixture is not a real provider test. It refuses to replace an existing provider configuration.
 

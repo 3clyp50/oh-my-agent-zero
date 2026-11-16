@@ -390,7 +390,10 @@ def apply(source):
 async def check(source):
     from helpers import files, runtime, settings, plugins, modules
     policy = asyncio.get_event_loop_policy()
-    modules.import_module(str(source / "tools/search_engine.py"))
+    search_tool = source / "plugins/_search_engine/tools/search_engine.py"
+    if not search_tool.is_file():
+        search_tool = source / "tools/search_engine.py"
+    modules.import_module(str(search_tool))
     assert asyncio.get_event_loop_policy() is policy, "Search imports must preserve the native event-loop policy"
     plugins.refresh_plugin_modules(["_code_execution", "_browser"])
     dynamic_code = modules.import_module(str(source / "plugins/_code_execution/tools/code_execution_tool.py"))

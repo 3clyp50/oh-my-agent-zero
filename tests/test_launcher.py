@@ -10,6 +10,36 @@ from oh_my_agent_zero import cli, native, windows
 
 
 class NativeTests(unittest.TestCase):
+    def test_search_check_supports_upstream_plugin_and_legacy_layouts(self):
+        import asyncio
+        import sys
+        from types import SimpleNamespace
+
+        class SearchImported(Exception):
+            pass
+
+        for layout in ("plugin", "legacy", "both", "missing"):
+            with self.subTest(layout=layout), tempfile.TemporaryDirectory() as folder:
+                source = Path(folder)
+                plugin = source / "plugins/_search_engine/tools/search_engine.py"
+                legacy = source / "tools/search_engine.py"
+                for path in (plugin, legacy):
+                    if layout == "both" or layout == ("plugin" if path == plugin else "legacy"):
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text("# Search tool fixture\n")
+
+                def load(path):
+                    Path(path).read_text()
+                    raise SearchImported
+
+                loader = Mock(side_effect=load)
+                helpers = SimpleNamespace(files=None, runtime=None, settings=None, plugins=None,
+                                          modules=SimpleNamespace(import_module=loader))
+                with patch.dict(sys.modules, {"helpers": helpers}):
+                    with self.assertRaises(FileNotFoundError if layout == "missing" else SearchImported):
+                        asyncio.run(native.check(source))
+                loader.assert_called_once_with(str(plugin if layout in ("plugin", "both") else legacy))
+
     def test_macos_cpu_defaults_preserve_user_configuration(self):
         state = {"node": "node", "framework": "framework"}
         with patch.object(cli.sys, "platform", "darwin"), patch.dict(os.environ, {}, clear=True):

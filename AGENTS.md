@@ -17,6 +17,7 @@ Run upstream Agent Zero on the host without maintaining a fork of its source.
 ## Local Contracts
 
 - Never modify tracked upstream source. Adapt at process startup and test the imported interfaces.
+- Search verification prefers the upstream search plugin and accepts its earlier core-tool location. Missing both must still fail verification.
 - Keep Docker detection false; native production must not impersonate Docker or development mode.
 - Preserve upstream authentication, CSRF, data persistence, and tool lifecycle behavior.
 - Host commands run with the current user's permissions. Never claim sandbox isolation.
